@@ -1,0 +1,364 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>SmoothSnap: 微調整可能なスナッピングスライダ</title>
+</head>
+<body>
+
+<h1>SmoothSnap: 微調整可能なスナッピングスライダ</h1>
+
+<!-- a href="clock.html"><img src="http://gyazo.com/8c326c92070d002b99398c18e69f3b47.png" border=none></a>-->
+
+<div id="slider" style="position:relative;height:66;width:314;background-color:#eee;">
+<span style="position:absolute;top:2;left:15;font-size:14;">0</span>
+<span style="position:absolute;top:2;left:84;font-size:14;">6</span>
+<span style="position:absolute;top:2;left:150;font-size:14;">12</span>
+<span style="position:absolute;top:2;left:217;font-size:14;">18</span>
+<span style="position:absolute;top:2;left:290;font-size:14;">24</span>
+
+<div id="time" style="position:absolute;top:10;left:10;font-size:14;">
+<span id="hour">3</span>:<span id="min">00</span>:<span id="sec">00</span>
+</div>
+
+<div id="knobbg" style="position:absolute;background-color:#fff;width:290;height:20;border-style:inset;border-width:2;top:22;left:10;"></div>
+<div id="knob" style="position:absolute;background-color:#888;width:14;height:14;border-style:outset;border-width:2;top:25;left:10;"></div>
+</div>
+<blockquote>
+<span id="mouseupdown"></span>
+</blockquote>
+
+<script type="text/javascript">
+var hour = 12;
+var min = 0;
+var sec = 0;
+var newhour;
+var newmin;
+var newsec;
+
+function dummyEventHandler(event){ }
+
+function settime(hour,min,sec){
+  var s;
+  document.getElementById('hour').innerHTML = hour;
+  s = '0'+min;
+  document.getElementById('min').innerHTML = s.substr(s.length-2,2);
+  s = '0'+sec;
+  document.getElementById('sec').innerHTML = s.substr(s.length-2,2);
+
+  var totalsec = hour * 3600 + min * 60 + sec;
+  var x = totalsec / 4 / 80;
+  document.getElementById('knob').style.left = x + 13;
+
+  document.getElementById('time').style.top = 46;
+  document.getElementById('time').style.left = x + 2;
+}
+
+if (window.addEventListener) { // W3C
+  document.addEventListener('mousemove', mousemove, true);
+  document.addEventListener('mouseup', mouseup, true);
+}
+else { // IE
+  document.attachEvent('onmousemove', mousemove);
+  document.attachEvent('onmouseup', mouseup);
+}
+//document.addEventListener('mouseup', mouseup, true);
+//document.addEventListener('mousemove', mousemove, true);
+var knob = document.getElementById('knob');
+knob.onmousedown = mousedown;
+//knob.addEventListener('mousedown', mousedown, true);
+var knobbg = document.getElementById('knobbg');
+knobbg.onmousedown = mousedownbg;
+//knobbg.addEventListener('mousedown', mousedownbg, true);
+
+var mousedownx = 0;
+var mousedowny = 0;
+var mousex = 0;
+var mousey = 0;
+var clicked = false;
+var mintable = [];
+var hourtable = [];
+var sectable = [];
+
+function getMouseX(e){
+  if(window.opera)                            //o6用
+      return e.clientX
+  else if(document.all)                       //e4,e5,e6用
+      return document.body.scrollLeft+event.clientX
+  else if(document.layers||document.getElementById)
+      return e.pageX                          //n4,n6,m1用
+}
+
+function getMouseY(e){
+  if(window.opera)                            //o6用
+      return e.clientY
+  else if(document.all)                       //e4,e5,e6用
+      return document.body.scrollTop+event.clientY
+  else if(document.layers||document.getElementById)
+      return e.pageY                          //n4,n6,m1用
+}
+
+function settable(hour,min,sec){
+  var ind = 0;
+  var h, m, s;
+  var count;
+  hourtable = [];
+  mintable = [];
+  sectable = [];
+  hourtable[ind] = hour;
+  mintable[ind] = min;
+  sectable[ind] = sec;
+  h = hour;
+  m = min;
+  s = sec;
+  ind--; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+  for(i=0;i<10;i++){
+    if(s > 0){ s -= 1; }
+    else {
+      if(m > 0){ m -= 1; s = 59; }
+      else { if(h > 0){ h -= 1; m = 59; s = 59; }}
+    }
+    ind--; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+    ind--; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+  }
+  for(i=0;i<8;i++){
+    if(s % 10 != 0){ s = s - s % 10; }
+    else {
+      if(s > 0){ s -= 10; }
+      else {
+        if(m > 0){ m -= 1; s = 50; }
+        else { if(h > 0) h -= 1; m = 59; s = 50; }
+      }
+    }
+    ind--; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+    ind--; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+    ind--; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+  }
+  for(i=0;i<10;i++){
+    if(m > 0){ m -= 1; s = 0; } else { if(h > 0){ h -= 1; m = 59; s = 0;}}
+    ind--; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+    ind--; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+  }
+  for(i=0;i<8;i++){
+    if(m % 10 != 0){ m = m - m % 10; s = 0; }
+    else {
+      if(m > 0){ m -= 10; s = 0; } else { if(h > 0){ h -= 1; m = 50; s = 0;}}
+    }
+    ind--; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+    ind--; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+    ind--; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+  }
+  for(;;){
+    if(m % 60 != 0){ m = 0; s = 0; }
+    else {
+      if(h > 0){ h -= 1; m = 0; s = 0;}
+    }
+    ind--; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+    ind--; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+    ind--; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+    ind--; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+    if(h == 0) break;
+  }
+  h = hour;
+  m = min;
+  s = sec;
+  ind = 0;
+  for(i=0;i<10;i++){
+    if(s < 59){ s += 1; }
+    else {
+      if(m < 59){ m += 1; s = 0; }
+      else { if(h < 23){ h += 1; m = 0; s = 0; } else { h = 23; m = 59; s = 59; }}
+    }
+    ind++; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+    ind++; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+  }
+  for(i=0;i<8;i++){
+    if(s % 10 != 0){
+      s = s - s % 10;
+      if(s == 50){
+        if(m < 59){
+          m += 1; s = 0;
+        }
+      }
+      else {
+        s += 10;
+      }
+    }
+    else {
+      if(s < 50){ s += 10; }
+      else {
+        if(m < 59){ m += 1; s = 0; }
+        else { if(h < 23){ h += 1; m = 0; s = 0; } else { h = 23; m = 59; s = 59;}}
+      }
+    }
+    ind++; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+    ind++; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+    ind++; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+  }
+  for(i=0;i<10;i++){
+    if(m < 59){ m += 1; s = 0; }
+    else { if(h < 23){ h += 1; m = 0; s = 0; } else {h = 23; m = 59; s = 59; }}
+    ind++; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+    ind++; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+  }
+  for(i=0;i<8;i++){
+    if(m % 10 != 0){
+      m = m - m % 10;
+      if(m == 50){
+        if(h < 23){
+          h += 1; m = 0; s = 0;
+        }
+      }
+      else {
+        m += 10; s = 0;
+      }
+    }
+    else {
+      if(m < 50){ m += 10; s = 0; }
+      else { if(h < 23){ h += 1; m = 0; s = 0;} else { h = 23; m = 59; s = 59; }}
+    }
+    ind++; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+    ind++; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+    ind++; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+  }
+  for(;;){
+    if(m % 60 != 0){
+      if(h < 23){
+        h += 1; m = 0; s = 0;
+      }
+      else {
+        m = 59; s = 59;
+      }
+    }
+    else {
+      if(h < 23){ h += 1; m = 0; s = 0;}
+      else { m = 59; s = 59;}
+    }
+    ind++; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+    ind++; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+    ind++; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+    ind++; hourtable[ind] = h; mintable[ind] = m; sectable[ind] = s;
+    if(h == 23 && m == 59 && s == 59) break;
+  }
+}
+
+function mousedown(event){
+//  document.getElementById('knobbg').style.backgroundColor = '#ff8';
+//  document.getElementById('mouseupdown').innerHTML = "Mouse DOWN";
+  clicked = true;
+  mousedownx = getMouseX(event);
+  mousedowny = getMouseX(event);
+  mousex = mousedownx;
+  mousey = mousedowny;
+  newhour = hour;
+  newmin = min;
+  newsec = sec;
+  settime(newhour,newmin,newsec);
+  settable(newhour,newmin,newsec);
+  return false;
+}
+
+function mousedownbg(event){
+//  document.getElementById('knobbg').style.backgroundColor = '#ff8';
+//  document.getElementById('mouseupdown').innerHTML = "Mouse DOWN";
+  clicked = true;
+  mousedownx = getMouseX(event);
+  mousedowny = getMouseX(event);
+  mousex = mousedownx;
+  mousey = mousedowny;
+  offsetx = document.getElementById('slider').offsetLeft;
+  newhour = Math.floor((mousex-offsetx-10) / 12);
+  if(newhour < 0) newhour = 0;
+  if(newhour >= 24) newhour = 23;  
+  newmin = 0;
+  newsec = 0;
+  settime(newhour,newmin,newsec);
+  settable(newhour,newmin,newsec);
+  return false;
+}
+
+function mousemove(event){
+  event.preventDefault();
+  if(clicked){
+    mousedownx = getMouseX(event);
+    mousedowny = getMouseX(event);
+    //ind = mousey - mousedowny;
+    ind = mousedownx - mousex;
+    if(hourtable[ind] != null){
+      settime(hourtable[ind],mintable[ind],sectable[ind]);
+      newhour = hourtable[ind];
+      newmin = mintable[ind];
+      newsec = sectable[ind];
+    }
+  }
+  return false;
+}
+
+function mouseup(event){
+//  document.getElementById('knobbg').style.backgroundColor = '#fff';
+//  document.getElementById('mouseupdown').innerHTML = "Mouse UP";
+  hour = newhour;
+  min = newmin;
+  sec = newsec;
+  clicked = false;
+  return false;
+}
+
+settime(hour,min,sec);
+document.body.onclick = dummyEventHandler;
+
+</script>
+
+<h2>資料</h2>
+<ul>
+<li><a href="http://www.youtube.com/watch?v=E8gctaXJK9o">解説動画</a> @ YouTube
+<li><a href="http://www.wiss.org/WISS2009/">WISS2009</a>でリジェクトされた<a href="paper.pdf">論文</a>
+  <ul>
+  <li><a href="comment.html">査読コメント</a>
+  </ul>
+</ul>
+
+<h2>デモ</h2>
+
+<ul>
+<!--
+<li><a href="frame.html">Frame実験</a>
+-->
+<!--
+<li><a href="eiwa.html">英和辞書</a> 動きはなんとかなったがフレームを使ってるのでいろいろ問題がある
+<li><a href="eiwascroll2.html">英和辞書</a> スクロールバーのイベント扱いがうまくいかない
+-->
+<li><a href="wired.html">Wired記事</a> 画面をドラッグするとスナップする。普通に動くが直観的でない。
+<li><a href="wired0.html">Wired記事</a> フレームを使うもの。Firefoxでないと動かないかも
+<li><a href="wiredlist.html">Wired記事</a> 通常のHTML
+<li><a href="clock.html">時刻あわせスライダ</a>
+<li><a href="rclock.html">時刻あわせ円盤</a>
+</ul>
+
+GoogleMapsをSmoothSnapでスクロールするという実験もやりたいかも
+
+<h2>感想</h2>
+
+<ul>
+<li>新しくて有用な提案に2点をつける査読は納得しがたい。
+<li>既存研究との違いをゴチャゴチャ述べることの意義がわからない。
+全く同じデザインのものが存在すれば別だが、
+新しいものは発表した方が有益ではないか。
+<li>自分が慣れていないものに「直感的でない」などとコメントするのは納得しがたい
+<li>そもそも最近は査読というプロセスに意味が感じられない。
+余程のトンデモでない限り、
+著者が発表すべきと思う研究は全部発表させた方がいいのではないか。
+システムのよしあしはユーザが判断すればよい。
+</ul>
+
+<!--
+可逆的にする必要がありそうだから、
+実際のスクロールバーの位置からスクロール量へのマッピング計算が必要になるような気がする。
+<br>
+マウスの移動量によってスナッピング位置を決めるというのはマズい。
+スナッピング位置はスクロールバーの位置から完全に計算されてしまうのがよい。
+-->
+
+</body>
+</html>
+
+

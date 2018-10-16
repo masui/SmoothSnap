@@ -1,0 +1,50 @@
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width user-scalable=no">
+    <!-- meta name="viewport" content="width=480, user-scalable=no, maximum-scale=0.6667″ /-->
+    <title>Snapping Slider</title>
+    <style type="text/css">
+      <!--
+	  h1 {
+	  }
+	  div {
+	  font-family: "Lucida Grande", "Lucida", "Lucida Sans", "Tahoma", Verdana, Arial, sans-serif;
+	  /* font-family: "sans-serif" */
+	  }
+	  body {
+	  background-color:#eee;
+	  }
+	-->
+    </style>
+  </head>
+  <body>
+    
+    <h1>SmoothSnapで時刻設定 (Version 6)</h1>
+
+    <blockquote>
+      <li>ノブを左右ドラッグで微調整
+      <li>数字バーをクリックするとそこに飛ぶ予定
+    </blockquote>
+    
+    <div id="slider" style="position:relative;left:30;height:70;width:350;">
+      <div id="knob" style="position:absolute;top:0;left:0;height:66;font-size:16;background-color:#ff0;">
+      </div>
+      <img id="tab" src="tab.png" style="position:absolute;width:130;">
+      <div id="time" style="position:absolute;top:0;left:10;font-size:16;cursor:default;">
+	<span id="hour">3</span>:<span id="min">00</span>:<span id="sec">00</span>
+      </div>
+      <img src="bg6.png" width=320 style="position:absolute;top:35;left:10;">
+    </div>
+
+    <blockquote>
+      <li>しかしこれではもはやスライダではない
+    </blockquote>
+    
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/2.0.0/jquery.min.js"></script>
+    <script type="text/javascript" src="clock6.js"></script>
+    
+  </body>
+</html>
+
+

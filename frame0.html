@@ -1,0 +1,30 @@
+<html>
+<body>
+<script language="javascript">
+<!--
+function a(){
+  //alert(document.body.scrollTop);
+  //location.href = "#abc";
+  //alert(document.body.scrollHeight);
+  f1 = document.getElementById('frame1');
+//alert(f1.body.scrollTop);
+ // f1.body.scrollTop = 2000; // Math.floor(document.body.scrollTop/10000) * 10000;
+}
+
+
+--></script>
+<div style="background-color:white;float:left;width:500px;">
+<iframe id="frame1" src='frame1.html' frameborder=0 width=100% height=100% marginwidth=0 marginheight= -200 scrolling='no' style="position:absolute;left:0;top:-200;clip:rect(200 700 400 0);"></iframe>
+</div>
+<div id="frame2" style="width:10%;float:right;">
+aaaaa
+</div>
+
+<script language="javascript">
+f2 = document.getElementById('frame2');
+f2.addEventListener('mousedown', a, true);
+//addEventListener('scroll', a, true);
+</script>
+
+</body>
+</html>

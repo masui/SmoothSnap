@@ -1,0 +1,47 @@
+Options +ExecCGI
+Options +Includes
+AddType text/html .shtml .html .htm
+AddType application/x-tv-program-info .tvpi
+AddType application/vnd.google-earth.kml+xml .kml
+AddType text/cache-manifest .manifest
+AddHandler server-parsed .shtml .html .htm
+RewriteEngine on
+RewriteRule ^([0-9a-z][0-9a-z][0-9a-z][!\?])$ shortname.cgi?shortname=$1
+RewriteRule ^([0-9a-z][0-9a-z][0-9a-z])$ shortname.cgi?shortname=$1
+RewriteRule ^([0-9a-z][0-9a-z])$ shortname.cgi?shortname=$1_
+RewriteRule ^([0-9a-z])$ shortname.cgi?shortname=$1__
+RewriteRule ^([0-9][0-9][0-9][0-9])$ messageboard.cgi?id=$1
+RewriteRule ^([0-9].........)$ id.cgi?id=$1
+RewriteRule ^([0-9]...........)$ /~masui/barcode.cgi?code=$1
+RewriteRule ^([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+.*[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)$ map.cgi?pos=$1
+RewriteRule ^(([ENSW]([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+))+)$ Location/map.cgi?pos=$1
+RewriteRule ^(([ENSW][0-9]+\.[0-9]+)+)$ Location/map.cgi?pos=$1
+#RewriteRule ^([0-9a-z]{32}.png)$ image-s3.cgi?id=$1
+#RewriteRule ^([0-9a-z]{32}.png)$ http://s3.amazonaws.com/gyazo.com/$1 [P]
+#RewriteRule ^([0-9a-z]{32}.png)$ http://data.gyazo.com/$1
+RewriteRule ^([0-9a-z]{32})$ http://pitecan.com/upload/$1
+RewriteRule ^([0-9a-z]{32}\..*)$ http://pitecan.com/upload/$1
+
+#RedirectMatch ^(.*)\.png$ http://s3.amazonaws.com/gyazo.com$1.png
+
+Redirect 301 /Bookshelf/ http://hondana.org/
+Redirect 301 /Enzan2/ http://hondana.org/enzan/
+
+Redirect 301 /blog/atom.xml http://tmasui.blogspot.com/feeds/posts/default
+Redirect 301 /blog/rss.xml http://tmasui.blogspot.com/feeds/posts/default?alt=rss
+#RedirectTemp /blog/atom.xml http://tmasui.blogspot.com/feeds/posts/default
+#RedirectTemp /blog/rss.xml http://tmasui.blogspot.com/feeds/posts/default?alt=rss
+
+# トップからRedirectだとうまくいかなかった...
+RewriteRule ^$ http://pitecan.com/Index/
+RewriteRule ^index.html$ http://pitecan.com/Index/
+
+# Redirect Permanent /index.html http://pitecan.com/Index/index.html
+# DirectoryIndex /Index/index.html
+
+SetEnvIf User-Agent "Openbot" BadRobot
+<Files *>
+ Order allow,deny
+ Allow from all
+ Deny from env=BadRobot
+</Files>
