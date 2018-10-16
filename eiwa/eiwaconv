@@ -1,0 +1,83 @@
+# -*- ruby -*- 
+
+mdsfile = File.open("eiwa.mds")
+imifile = File.open("eiwa.imi")
+
+h2title = ''
+h3title = ''
+
+print <<EOF
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>title</title>
+<style type="text/css">
+<!--
+h1 {
+	color: #004400;
+	background-color: #c0c0ff;
+	margin-right: 0%;
+	margin-left: 0%;
+	text-align: center;
+	padding: 0.5em 0.5em;
+	text-indent: 0.25em;
+	border-style: none;
+}
+h2 {
+	color: black;
+	background-color: #c0ffc0;
+	margin-right: 0%;
+	margin-left: 0%;
+	text-align: left;
+	padding: 0.1em 0.1em;
+	text-indent: 0.25em;
+	border-style: none;
+}
+h3 {
+	margin-right: 0%;
+	margin-left: 0%;
+	text-align: left;
+	padding: 0.1em 0.1em;
+	color: #000000;
+	text-indent: 0.25em;
+	border-style: none;
+	background-color: #eeaaee;
+}
+
+span.midashi {
+	color: #000099;
+	font-weight:bold;
+}
+-->
+</style>
+</head>
+<body>
+EOF
+
+while true do
+  mds = mdsfile.readline.to_s.chomp
+  break if mds == ''
+  imi = imifile.readline.to_s.chomp
+  mds =~ /^[^a-zA-Z]*(.)/
+  s = $1.upcase
+  if s != h2title then
+    puts "<h2>#{s}</h2>\n"
+    h2title = s
+  end
+  mds =~ /^[^a-zA-Z]*(.)[^a-zA-Z]*(.)/
+  s1 = $1.to_s
+  s2 = $2.to_s
+  if s1 != '' && s2 != '' then
+    s = (s1+s2).upcase
+    if s != h3title then
+      puts "<h3>#{s}</h3>\n"
+      h3title = s
+    end
+  end
+  puts "<li><span class='midashi'>#{mds}</span> #{imi}"
+end
+
+print <<EOF
+</body>
+</html>
+EOF

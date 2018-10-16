@@ -1,0 +1,30 @@
+h1 {
+	color: #ffffff;
+	background-color: #208010;
+	margin-right: 0%;
+	margin-left: 0%;
+	text-align: center;
+	padding: 0.5em 0.5em;
+	text-indent: 0.25em;
+	border-style: none;
+}
+h2 {
+	color: black;
+	background-color: #c0ffc0;
+	margin-right: 0%;
+	margin-left: 0%;
+	text-align: left;
+	padding: 0.1em 0.1em;
+	text-indent: 0.25em;
+	border-style: none;
+}
+h3 {
+	margin-right: 0%;
+	margin-left: 0%;
+	text-align: left;
+	padding: 0.1em 0.1em;
+	color: #000000;
+	text-indent: 0.25em;
+	border-style: none;
+	background-color: #eeaaee;
+}

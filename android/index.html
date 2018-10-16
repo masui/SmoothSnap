@@ -1,0 +1,3161 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>title</title>
+<style type="text/css">
+<!--
+div.div1 {
+  background-color:#eee;
+}
+div.div2 {
+  background-color:#ddd;
+}
+div.prefix {
+  font-size:9pt;
+  color:#555;
+}
+div.entry {
+  font-size:10pt;
+}
+b.black {
+  color:black;
+}
+b.gray {
+  color:#999;
+}
+-->
+</style>
+
+<script type="text/javascript">
+<!--
+var mouseupy = 0;
+var mousedowny = 0;
+var mousey = 0;
+
+var scheight = window.innerHeight;             // スクロールバーの長さ
+var bodyheight;                                // スクロール対象の長さ
+var center = 0;
+
+var snap0 = [];                                // スナップする位置 レベル0 (粗い)
+var snap1 = [];                                // スナップする位置 レベル1 (細かい)
+var scmap = [];
+
+var hpat = "[a-zA-Z\-〔「『あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほ\
+まみむめもやゆよらりるれろわゐゑをんがぎぐげござじずぜぞ\
+だぢづでどばびぶべぼぱぴぷぺぽぁぃぅぇぉっゃゅょゎ・ー　]";
+var hre1 = new RegExp();
+hre1.compile("^("+hpat+")");
+var hre2 = new RegExp();
+hre2.compile("^("+hpat+hpat+")");
+
+window.onload = function (){
+/*
+  h2tags = document.getElementsByTagName('h2');
+  snap0 = [];
+  snap0.push(0);
+  for(var i=0;i<h2tags.length;i++){
+    snap0.push(h2tags[i].offsetTop);
+  }
+  h3tags = document.getElementsByTagName('h3');
+  snap1 = [];
+  for(var i=0;i<snap0.length;i++){
+    snap1.push(snap0[i]);
+  }
+  for(var i=0;i<h3tags.length;i++){
+    snap1.push(h3tags[i].offsetTop);
+  }
+*/
+
+  elements = document.getElementsByClassName('element');
+  snap0 = [];
+  snap0.push(0);
+  curyomi = ""
+  step = 0
+  for(var i=0;i<elements.length;i++){
+    yomi = elements[i].getAttribute('yomi');
+    m = yomi.match(hre1);
+    // if(!m) alert(yomi);
+    if(!m) m = ["", ""]
+    if(m[1] != curyomi || // 1文字目が違う
+      step == 20){
+      snap0.push(elements[i].offsetTop);
+      curyomi = m[1];
+      step = 0
+    }
+    step += 1;
+  }
+  snap1 = [];
+  curyomi = ""
+  for(var i=0;i<snap0.length;i++){
+    snap1.push(snap0[i]);
+  }
+  for(var i=0;i<elements.length;i++){
+    yomi = elements[i].getAttribute('yomi');
+    m = yomi.match(hre2);
+    if(!m) m = ["", ""]
+    if(m[1] != curyomi){ // 1,2文字目が違う
+      snap1.push(elements[i].offsetTop);
+      curyomi = m[1];
+    }
+  }
+  snap1.sort(function(a,b){ return a-b; });
+
+  // parent.eiwatest.document.body.innerHTML = snap1.join('<br>');
+
+  bodyheight = document.body.scrollHeight;
+
+  setup_map();
+
+  iPhone = navigator.userAgent.match(/iPhone/) ||
+           navigator.userAgent.match(/iPad/);
+
+  if(iPhone){
+    document.addEventListener("touchstart", mousedown, false);
+    document.addEventListener("touchend", mouseup, false);
+    document.addEventListener("touchmove", mousemove, false);
+  }
+  else {
+    addEventListener('mousedown', mousedown, false);
+    addEventListener('mouseup', mouseup, false);
+    addEventListener('mousemove', mousemove, false);
+  }
+
+  document.body.scrollTop = 0;
+
+  //addEventListener('scroll', scroll, false);
+}
+
+function findsnap(y,snap){
+  var bodyy = Math.floor(bodyheight * y / scheight);
+  for(var i=0;i<snap.length;i++){
+    if(snap[i] >= bodyy){
+      return snap[i];
+    }
+  }
+  return bodyheight;
+}
+
+//                 <-50-->                  slider領域
+//                       |--------------------------------------------------|
+//                       0                                              clientHeight
+//                 |--------------------------mousey-------------------------------|
+//                              y <---- d ------>
+//
+//
+//        0                     p                                                                    scrollHeight
+//        |===================================center=======================================================|
+//  snap0 |           |          |       |             |      |           | 
+//  snap1 |    |   |  |   |  |   |   |   |  |   |  |   |      |  |   |    |
+
+function setup_map(){
+  var y;
+  var d;
+  var p;
+  var count;
+  var i;
+
+  // 現在地の周辺のスナップ位置を知る
+  var uppersnap = 0;
+  var lowersnap = 0;
+  for(i=0;i<snap1.length;i++){
+    if(snap1[i] > center){
+      if(i > 0){
+        uppersnap = snap1[i-1];
+      }
+      lowersnap = snap1[i];
+      break;
+    }
+    if(i > 0){
+      uppersnap = snap1[i-1];
+    }
+    lowersnap = snap1[i];
+  }
+
+  for(y=mousey;y>= -50;y--){
+    d = mousey - y;
+    p = center - d * d;
+    if(d >= 30 && p < uppersnap) break;
+    scmap[y] = p;
+  }
+  if(y > -50){
+    p = center - d * d;
+    // 0〜p までのスナップ場所の数を数える
+    if(p >= 0){
+      for(i=0,count=0;i<snap1.length;i++){
+        if(snap1[i] > p) break;
+        count++;
+      }
+      for(i= -50;i<=y;i++){
+        var ind = Math.floor(((i+50) * count)/(y+50));
+        scmap[i] = snap1[ind];
+      }
+
+      y = Math.floor((y+50)/2-50);
+      p = scmap[y-1];
+      // 0〜p までのスナップ場所の数を数える
+      if(p >= 0){
+        for(i=0,count=0;i<snap0.length;i++){
+          if(snap0[i] > p) break;
+          count++;
+        }
+        for(i= -50;i<=y;i++){
+          var ind = Math.floor(((i+50) * count)/(y+50));
+          scmap[i] = snap0[ind];
+        }
+      }
+    }
+  }
+
+  for(y=mousey+1;y<scheight+50;y++){
+    d = y-mousey;
+    p = center + d * d;
+    if(d >= 30 && p > lowersnap) break;
+    scmap[y] = p;
+  }
+  if(y <scheight+50){
+    p = center + d * d;
+    // p〜 のスナップ場所の数を数える
+    if(p < bodyheight){
+      for(i=snap1.length-1,count=0;i>=0;i--){
+        if(snap1[i] < p) break;
+        count++;
+      }
+      for(i=scheight+50-1;i>y;i--){
+        var ind = Math.floor(((scheight+50-i) * count)/(scheight+50-y));
+        scmap[i] = snap1[snap1.length-1-ind];
+      }
+//parent.eiwatest.document.body.innerHTML = scmap.length + '<br>' + scmap.join('<br>');
+
+      y = Math.floor(scheight+50-1 - (scheight+50-1-y)/2);
+      p = scmap[y];
+      for(i=snap0.length-1,count=0;i>=0;i--){
+        if(snap0[i] < p) break;
+        count++;
+      }
+      for(i=scheight+50-1;i>y;i--){
+        var ind = Math.floor(((scheight+50-i) * count)/(scheight+50-y));
+        scmap[i] = snap0[snap0.length-1-ind];
+      }
+    }
+  }
+}
+
+var clicked = false;
+
+function scroll(event){
+  document.body.scrollTop = scmap[mousey]-10;
+  return false;
+}
+
+function mousedown(event){
+  clicked = true;
+  if(iPhone){
+    event.preventDefault();
+    mousedowny = scheight - event.touches[0].pageY;
+    mousey = scheight - event.touches[0].pageY;
+  }
+  else {
+    mousedowny = scheight - event.clientY;
+    mousey = scheight - event.clientY;
+  }
+  setup_map();
+  return false;
+}
+
+function mouseup(event){
+  event.preventDefault();
+
+  clicked = false;
+  if(iPhone){
+    mouseupy = scheight - event.touches[0].pageY;
+  }
+  else {
+    mouseupy = scheight - event.clientY;
+  }
+  // var center = Math.floor(bodyheight * mouseupy / scheight);
+//  document.body.scrollTop = scmap[mousey];
+  return false;
+}
+
+function mousemove(event){
+  window.getSelection().removeAllRanges(); // ドラッグによる選択をキャンセル
+
+  if(iPhone){
+    event.preventDefault();
+  }
+  if(clicked){
+    if(iPhone){
+      mousey = scheight - event.touches[0].pageY;
+    }
+    else {
+      mousey = scheight - event.clientY;
+    }
+    center = scmap[mousey];
+    document.body.scrollTop = scmap[mousey]; // -10;
+  }
+  return false;
+}
+</script>
+</head>
+
+<body STYLE="overflow: hidden;">
+
+<div style="float:left;width:60;">
+  <b class="black">2D</b>
+</div>
+<div class="element div1" id="element0" yomi="2Dくらふいつくす">
+  <div class=prefix>OpenGLによる</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/Graphics2DEx/">2Dグラフィックス</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">3D</b>
+</div>
+<div class="element div2" id="element1" yomi="3Dくらふいつくす">
+  <div class=prefix>OpenGLによる</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/OpenGL/">3Dグラフィックス</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Ac</b>
+</div>
+<div class="element div1" id="element2" yomi="ActivityManagerへん）">
+  <div class=prefix>システムのメモリ情報を取得するには（</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000327.html">ActivityManager編）</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">ad</b>
+</div>
+<div class="element div2" id="element3" yomi="adbけいゆてあふりけえしよんをしゆとうていんすとおる／あんいんすとおるするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000218.html">adb経由でアプリケーションを手動でインストール／アンインストールするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Al</b>
+</div>
+<div class="element div1" id="element4" yomi="AlertDialog)をしようするには">
+  <div class=prefix>アラートダイアログ(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000083.html">AlertDialog)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">An</b>
+</div>
+<div class="element div2" id="element5" yomi="AnalogClock)をしようするには">
+  <div class=prefix>アナログ時計(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000116.html">AnalogClock)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">An</b>
+</div>
+<div class="element div1" id="element6" yomi="Androidそおすこおとをたうんろおと・ひるとするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000118.html">Androidソースコードをダウンロード・ビルドするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Ar</b>
+</div>
+<div class="element div2" id="element7" yomi="Arc)をひようかするには">
+  <div class=prefix>孤(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000122.html">Arc)を描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">Ar</b>
+</div>
+<div class="element div1" id="element8" yomi="Arc)をひようかするには">
+  <div class=prefix>円弧(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000122.html">Arc)を描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Ba</b>
+</div>
+<div class="element div2" id="element9" yomi="Battery information)をしゆとくするには">
+  <div class=prefix>バッテリーの情報(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000140.html">Battery information)を取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Bi</b>
+</div>
+<div class="element div1" id="element10" yomi="Bitmapいんすたんすをえるには">
+  <div class=prefix>BMP/JPG/PNG/GIFイメージリソースから</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000280.html">Bitmapインスタンスを得るには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">BM</b>
+</div>
+<div class="element div2" id="element11" yomi="BMP/JPG/PNG/GIFいめえしりそおすからBitmapいんすたんすをえるには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000280.html">BMP/JPG/PNG/GIFイメージリソースからBitmapインスタンスを得るには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Bu</b>
+</div>
+<div class="element div1" id="element12" yomi="Button)をしようするには">
+  <div class=prefix>ボタン(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000065.html">Button)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Ch</b>
+</div>
+<div class="element div2" id="element13" yomi="CheckBox)をしようするには">
+  <div class=prefix>チェックボックス(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000066.html">CheckBox)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">Ch</b>
+</div>
+<div class="element div1" id="element14" yomi="Chronometer)をしようするには">
+  <div class=prefix>クロノメーター(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000127.html">Chronometer)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Ci</b>
+</div>
+<div class="element div2" id="element15" yomi="Circle)をひようかするには">
+  <div class=prefix>円(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000114.html">Circle)を描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Da</b>
+</div>
+<div class="element div1" id="element16" yomi="DatePickerDialog)をしようするには">
+  <div class=prefix>日付選択ダイアログ(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000103.html">DatePickerDialog)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">DB</b>
+</div>
+<div class="element div2" id="element17" yomi="DBをていきようするこんてんつふろはいた">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/DBProviderEx/">DBを提供するコンテンツプロバイダ</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Di</b>
+</div>
+<div class="element div1" id="element18" yomi="DigitalClock)をしようするには">
+  <div class=prefix>デジタル時計(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000117.html">DigitalClock)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Dr</b>
+</div>
+<div class="element div2" id="element19" yomi="Drawableのりよう">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/DrawableEx/">Drawableの利用
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Ec</b>
+</div>
+<div class="element div1" id="element20" yomi="Eclipseにそおすこおとをとりこむには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000220.html">Eclipseにソースコードを取り込むには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Ed</b>
+</div>
+<div class="element div2" id="element21" yomi="EditText)をしようするには">
+  <div class=prefix>エディットテキスト(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000069.html">EditText)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Fl</b>
+</div>
+<div class="element div1" id="element22" yomi="FlashDevelopによるAndroidあふりのさくせい">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/flash/as30/HelloWorld_FlashDevelop_Android/">FlashDevelopによるAndroidアプリの作成
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Fu</b>
+</div>
+<div class="element div2" id="element23" yomi="Full Screen)/せんかめんひようしをするには">
+  <div class=prefix>フルスクリーン(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000156.html">Full Screen)/全画面表示をするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">GI</b>
+</div>
+<div class="element div1" id="element24" yomi="GIFいめえしりそおすからBitmapいんすたんすをえるには">
+  <div class=prefix>BMP/JPG/PNG/</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000280.html">GIFイメージリソースからBitmapインスタンスを得るには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">GP</b>
+</div>
+<div class="element div2" id="element25" yomi="GPSをしようするには">
+  <div class=prefix>位置情報を取得するには/</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000125.html">GPSを使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Gr</b>
+</div>
+<div class="element div1" id="element26" yomi="Graphics)をひようかするには">
+  <div class=prefix>グラフィックス(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000109.html">Graphics)を描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">He</b>
+</div>
+<div class="element div2" id="element27" yomi="Hello Worldをさくせいするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000063.html">Hello Worldを作成するには
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">He</b>
+</div>
+<div class="element div1" id="element28" yomi="Help)をさんしようするには">
+  <div class=prefix>ヘルプ(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000097.html">Help)を参照するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">HT</b>
+</div>
+<div class="element div2" id="element29" yomi="HTTPつうしん">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/HttpEx/">HTTP通信</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Ic</b>
+</div>
+<div class="element div1" id="element30" yomi="Icon Design Guidelines)とは">
+  <div class=prefix>アイコンデザインガイドライン(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000183.html">Icon Design Guidelines)とは</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">ID</b>
+</div>
+<div class="element div2" id="element31" yomi="ID・さあひす・つうしんきようと・きちきよく・てんわこおるのしゆとく">
+  <div class=prefix>電話番号・SIM・デバイス</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TelephonyEx/">ID・サービス・通信強度・基地局・電話コールの取得        </a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Ja</b>
+</div>
+<div class="element div1" id="element32" yomi="JavaScriptとのれんけい">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/JavaScriptEx/">JavaScriptとの連携
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">JP</b>
+</div>
+<div class="element div2" id="element33" yomi="JPG/PNG/GIFいめえしりそおすからBitmapいんすたんすをえるには">
+  <div class=prefix>BMP/</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000280.html">JPG/PNG/GIFイメージリソースからBitmapインスタンスを得るには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Li</b>
+</div>
+<div class="element div1" id="element34" yomi="Line)をひようかするには">
+  <div class=prefix>直線(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000110.html">Line)を描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">Li</b>
+</div>
+<div class="element div2" id="element35" yomi="ListView)をしようするには">
+  <div class=prefix>リストビュー(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000077.html">ListView)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Lo</b>
+</div>
+<div class="element div1" id="element36" yomi="Log)をしゆつりよくするには">
+  <div class=prefix>ログ(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000064.html">Log)を出力するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Me</b>
+</div>
+<div class="element div2" id="element37" yomi="Menu)をしようするには">
+  <div class=prefix>メニュー(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000085.html">Menu)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">ND</b>
+</div>
+<div class="element div1" id="element38" yomi="NDK">
+  <div class=prefix>Android </div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/ndk/">NDK</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">OA</b>
+</div>
+<div class="element div2" id="element39" yomi="OAuthによるTwitterつうしん">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/OAuthTwitterEx/">OAuthによるTwitter通信</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Op</b>
+</div>
+<div class="element div1" id="element40" yomi="OpenGLによる2Dくらふいつくす">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/Graphics2DEx/">OpenGLによる2Dグラフィックス</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">Op</b>
+</div>
+<div class="element div2" id="element41" yomi="OpenGLによる3Dくらふいつくす">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/OpenGL/">OpenGLによる3Dグラフィックス</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Ov</b>
+</div>
+<div class="element div1" id="element42" yomi="Oval)をひようかするには">
+  <div class=prefix>楕円(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000113.html">Oval)を描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Pa</b>
+</div>
+<div class="element div2" id="element43" yomi="Path)をひようかするには">
+  <div class=prefix>パス(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000137.html">Path)を描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">PN</b>
+</div>
+<div class="element div1" id="element44" yomi="PNG/GIFいめえしりそおすからBitmapいんすたんすをえるには">
+  <div class=prefix>BMP/JPG/</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000280.html">PNG/GIFイメージリソースからBitmapインスタンスを得るには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Po</b>
+</div>
+<div class="element div2" id="element45" yomi="Point)をひようかするには">
+  <div class=prefix>点(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000115.html">Point)を描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Pr</b>
+</div>
+<div class="element div1" id="element46" yomi="ProgressBar)をしようするには">
+  <div class=prefix>プログレスバー(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000079.html">ProgressBar)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">Pr</b>
+</div>
+<div class="element div2" id="element47" yomi="ProgressDialog)をしようするには">
+  <div class=prefix>プログレスダイアログ(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000082.html">ProgressDialog)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Ra</b>
+</div>
+<div class="element div1" id="element48" yomi="RadioButton)をしようするには">
+  <div class=prefix>ラジオボタン(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000067.html">RadioButton)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">Ra</b>
+</div>
+<div class="element div2" id="element49" yomi="RatingBar)をしようするには">
+  <div class=prefix>レイティングバー(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000136.html">RatingBar)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Re</b>
+</div>
+<div class="element div1" id="element50" yomi="RecognizerIntent)をしようするには">
+  <div class=prefix>音声認識(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000164.html">RecognizerIntent)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">Re</b>
+</div>
+<div class="element div2" id="element51" yomi="Rect)をひようかするには">
+  <div class=prefix>矩形(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000112.html">Rect)を描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Sc</b>
+</div>
+<div class="element div1" id="element52" yomi="Screen brightness)をへんこうするには">
+  <div class=prefix>画面の明るさ(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000157.html">Screen brightness)を変更するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">SD</b>
+</div>
+<div class="element div2" id="element53" yomi="SDかあとへのあふりほそん">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/InstallLocationEx/">SDカードへのアプリ保存    </a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Se</b>
+</div>
+<div class="element div1" id="element54" yomi="SeekBar)をしようするには">
+  <div class=prefix>シークバー(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000128.html">SeekBar)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">Se</b>
+</div>
+<div class="element div2" id="element55" yomi="Sensor)をしようするには">
+  <div class=prefix>センサー(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000182.html">Sensor)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">Se</b>
+</div>
+<div class="element div1" id="element56" yomi="Sensor)をつかうには">
+  <div class=prefix>センサー(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000182.html">Sensor)を使うには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">SI</b>
+</div>
+<div class="element div2" id="element57" yomi="SIM・てはいすID・さあひす・つうしんきようと・きちきよく・てんわこおるのしゆとく">
+  <div class=prefix>電話番号・</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TelephonyEx/">SIM・デバイスID・サービス・通信強度・基地局・電話コールの取得        </a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Sl</b>
+</div>
+<div class="element div1" id="element58" yomi="SlidingDrawer)をしようするには">
+  <div class=prefix>スライディングドローワー(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000160.html">SlidingDrawer)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">SM</b>
+</div>
+<div class="element div2" id="element59" yomi="SMS(しよおとめつせえしさあひす）ててきすとをそうしんするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000330.html">SMS(ショートメッセージサービス）でテキストを送信するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Sp</b>
+</div>
+<div class="element div1" id="element60" yomi="Spinner)をしようするには">
+  <div class=prefix>スピナー(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000074.html">Spinner)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">St</b>
+</div>
+<div class="element div2" id="element61" yomi="StatFsへん）">
+  <div class=prefix>システムのメモリ情報を取得するには（</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000272.html">StatFs編）</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Te</b>
+</div>
+<div class="element div1" id="element62" yomi="TextView)をしようするには">
+  <div class=prefix>テキストビュー(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000071.html">TextView)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Ti</b>
+</div>
+<div class="element div2" id="element63" yomi="TimePickerDialog)をしようするには">
+  <div class=prefix>時間設定ダイアログ(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000104.html">TimePickerDialog)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">Ti</b>
+</div>
+<div class="element div1" id="element64" yomi="TimePickerDialog)をしようするには">
+  <div class=prefix>時刻選択ダイアログ(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000104.html">TimePickerDialog)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">To</b>
+</div>
+<div class="element div2" id="element65" yomi="Toast)をしようするには">
+  <div class=prefix>トースト(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000086.html">Toast)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">To</b>
+</div>
+<div class="element div1" id="element66" yomi="TouchEvent)をしゆとくするには">
+  <div class=prefix>タッチイベント(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000123.html">TouchEvent)を取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Tw</b>
+</div>
+<div class="element div2" id="element67" yomi="Twitterつうしん">
+  <div class=prefix>OAuthによる</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/OAuthTwitterEx/">Twitter通信</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">UR</b>
+</div>
+<div class="element div1" id="element68" yomi="URLをひようしさせるには">
+  <div class=prefix>指定した</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000169.html">URLを表示させるには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Vi</b>
+</div>
+<div class="element div2" id="element69" yomi="Vibrator)をしようするには">
+  <div class=prefix>振動器(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000124.html">Vibrator)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">Vi</b>
+</div>
+<div class="element div1" id="element70" yomi="Vibrator)をしようするには">
+  <div class=prefix>バイブレータ(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000124.html">Vibrator)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">VM</b>
+</div>
+<div class="element div2" id="element71" yomi="VMのしようほうをしゆとく・せつていするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000326.html">VMの情報を取得・設定するには
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">We</b>
+</div>
+<div class="element div1" id="element72" yomi="WebViewのすうむほたんをゆうこうにするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000290.html">WebViewのズームボタンを有効にするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">We</b>
+</div>
+<div class="element div2" id="element73" yomi="WebViewのへえしよみこみちゆうにふろくれすをひようしするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000291.html">WebViewのページ読み込み中にプログレスを表示するには
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">WE</b>
+</div>
+<div class="element div1" id="element74" yomi="WEBひゆう">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/WebViewEx/">WEBビュー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">Wi</b>
+</div>
+<div class="element div2" id="element75" yomi="Wifiせつていのゆうこう／むこうをきりかえるには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000258.html">Wifi設定の有効／無効を切り替えるには 
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">Wi</b>
+</div>
+<div class="element div1" id="element76" yomi="Wifiのしようたいをしゆとくするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000257.html">Wifiの状態を取得するには
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">XM</b>
+</div>
+<div class="element div2" id="element77" yomi="XMLかいせき">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/XMLParserEx/">XML解析
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">XM</b>
+</div>
+<div class="element div1" id="element78" yomi="XMLれいあうと">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/XMLLayoutEx/">XMLレイアウト</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">あい</b>
+</div>
+<div class="element div2" id="element79" yomi="あいこんてさいんかいとらいん(Icon Design Guidelines)とは">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000183.html">アイコンデザインガイドライン(Icon Design Guidelines)とは</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">あい</b>
+</div>
+<div class="element div1" id="element80" yomi="あいこんりそおす">
+  <div class=prefix>内蔵</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/iconres/">アイコンリソース</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">あい</b>
+</div>
+<div class="element div2" id="element81" yomi="あいこんをひようしするには">
+  <div class=prefix>タイトルバーに</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000331.html">アイコンを表示するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">あか</b>
+</div>
+<div class="element div1" id="element82" yomi="あかるさ(Screen brightness)をへんこうするには">
+  <div class=prefix>画面の</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000157.html">明るさ(Screen brightness)を変更するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">あく</b>
+</div>
+<div class="element div2" id="element83" yomi="あくしよんとかてこり">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/action/">アクションとカテゴリ</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">あく</b>
+</div>
+<div class="element div1" id="element84" yomi="あくていひてい">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/activity/">アクティビティ
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">あく</b>
+</div>
+<div class="element div2" id="element85" yomi="あくていひていくるうふ">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/ActivityGroupEx/">アクティビティグループ</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">あく</b>
+</div>
+<div class="element div1" id="element86" yomi="あくていひていせんいしのあにめえしよん">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TransitionEx/">アクティビティ遷移時のアニメーション</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">あく</b>
+</div>
+<div class="element div2" id="element87" yomi="あくていひていのきとう">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/ActivityEx/">アクティビティの起動
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">あく</b>
+</div>
+<div class="element div1" id="element88" yomi="あくていひていのきとうもおと">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/LaunchMode/">アクティビティの起動モード</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">あく</b>
+</div>
+<div class="element div2" id="element89" yomi="あくていひていへのせんい">
+  <div class=prefix>呼び出し元</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/CalledActivityEx/">アクティビティへの遷移</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">あく</b>
+</div>
+<div class="element div1" id="element90" yomi="あくていひてい（かめん）のはいけいをとうかにするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000265.html">アクティビティ（画面）の背景を透過にするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">あく</b>
+</div>
+<div class="element div2" id="element91" yomi="あくていへえしよんとふああむうえあこうしん">
+  <div class=prefix>Dev Phone 1の</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/DevPhone1/">アクティベーションとファームウェア更新</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">あせ</b>
+</div>
+<div class="element div1" id="element92" yomi="あせつと">
+  <div class=prefix>リソースと</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/res/">アセット</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">あと</b>
+</div>
+<div class="element div2" id="element93" yomi="あとれすちようへのあくせす">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/AddressEx/">アドレス帳へのアクセス    
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">あな</b>
+</div>
+<div class="element div1" id="element94" yomi="あなろくとけい(AnalogClock)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000116.html">アナログ時計(AnalogClock)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">あに</b>
+</div>
+<div class="element div2" id="element95" yomi="あにめえしよん">
+  <div class=prefix>フレーム</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/FrameAnimationEx/">アニメーション</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">あに</b>
+</div>
+<div class="element div1" id="element96" yomi="あにめえしよん">
+  <div class=prefix>アクティビティ遷移時の</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TransitionEx/">アニメーション</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">あに</b>
+</div>
+<div class="element div2" id="element97" yomi="あにめえしよん">
+  <div class=prefix>トゥイーン</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TweenAnimationEx/">アニメーション</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">あに</b>
+</div>
+<div class="element div1" id="element98" yomi="あにめえしよんのさいせい">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/AnimeEx/">アニメーションの再生</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">あふ</b>
+</div>
+<div class="element div2" id="element99" yomi="あふそりゆうとれいあうと">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/AbsoluteLayoutEx/">アブソリュートレイアウト</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">あふ</b>
+</div>
+<div class="element div1" id="element100" yomi="あふりけえしよんのさくせい">
+  <div class=prefix>はじめてのAndroid</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/HelloWorld/">アプリケーションの作成</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">あふ</b>
+</div>
+<div class="element div2" id="element101" yomi="あふりけえしよんのしようほうをしゆとくするには">
+  <div class=prefix>インストールされた</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000329.html">アプリケーションの情報を取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">あふ</b>
+</div>
+<div class="element div1" id="element102" yomi="あふりのりそおすしゆとくとふあいるよみかき">
+  <div class=prefix>他の</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/SharedEx/">アプリのリソース取得とファイル読み書き</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">あら</b>
+</div>
+<div class="element div2" id="element103" yomi="あらあとたいあろく(AlertDialog)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000083.html">アラートダイアログ(AlertDialog)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">あん</b>
+</div>
+<div class="element div1" id="element104" yomi="あんいんすとおるするには">
+  <div class=prefix>adb経由でアプリケーションを手動でインストール／</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000218.html">アンインストールするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">いち</b>
+</div>
+<div class="element div2" id="element105" yomi="いちしようほうのしゆとく">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/LocationEx/">位置情報の取得
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">いち</b>
+</div>
+<div class="element div1" id="element106" yomi="いちしようほうをしゆとくするには/GPSをしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000125.html">位置情報を取得するには/GPSを使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">いへ</b>
+</div>
+<div class="element div2" id="element107" yomi="いへんと(TouchEvent)をしゆとくするには">
+  <div class=prefix>タッチ</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000123.html">イベント(TouchEvent)を取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">いへ</b>
+</div>
+<div class="element div1" id="element108" yomi="いへんとにおうとうするには">
+  <div class=prefix>キー</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000325.html">イベントに応答するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">いへ</b>
+</div>
+<div class="element div2" id="element109" yomi="いへんとのしより">
+  <div class=prefix>キー</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/KeyEx/">イベントの処理</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">いへ</b>
+</div>
+<div class="element div1" id="element110" yomi="いへんとのしより">
+  <div class=prefix>マルチタッチ</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/MultiTouchEx/">イベントの処理</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">いへ</b>
+</div>
+<div class="element div2" id="element111" yomi="いへんとのしより">
+  <div class=prefix>タッチ</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TouchEx/">イベントの処理</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">いへ</b>
+</div>
+<div class="element div1" id="element112" yomi="いへんとのしより">
+  <div class=prefix>ジェスチャー</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/GestureDetectorEx/">イベントの処理</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">いめ</b>
+</div>
+<div class="element div2" id="element113" yomi="いめえしのひようか">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/BitmapEx/">イメージの描画</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">いめ</b>
+</div>
+<div class="element div1" id="element114" yomi="いめえしひゆう">
+  <div class=prefix>テキストビューと</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TextViewEx/">イメージビュー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">いめ</b>
+</div>
+<div class="element div2" id="element115" yomi="いめえしりそおすからBitmapいんすたんすをえるには">
+  <div class=prefix>BMP/JPG/PNG/GIF</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000280.html">イメージリソースからBitmapインスタンスを得るには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">いん</b>
+</div>
+<div class="element div1" id="element116" yomi="いんすとおるされたあふりけえしよんのしようほうをしゆとくするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000329.html">インストールされたアプリケーションの情報を取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">いん</b>
+</div>
+<div class="element div2" id="element117" yomi="いんすとおる／あんいんすとおるするには">
+  <div class=prefix>adb経由でアプリケーションを手動で</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000218.html">インストール／アンインストールするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">いん</b>
+</div>
+<div class="element div1" id="element118" yomi="いんてんと">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/intent/">インテント
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">うい</b>
+</div>
+<div class="element div2" id="element119" yomi="ういしえつと">
+  <div class=prefix>ホームスクリーン</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/AppWidgetEx/">ウィジェット</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">うい</b>
+</div>
+<div class="element div1" id="element120" yomi="ういんとうたいとるはあをひひようしにするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000155.html">ウィンドウタイトルバーを非表示にするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">うお</b>
+</div>
+<div class="element div2" id="element121" yomi="うおおるへえはあ">
+  <div class=prefix>ライブ</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/LiveWallpaperEx/">ウォールペーパー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">えて</b>
+</div>
+<div class="element div1" id="element122" yomi="えていつとてきすと">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/EditTextEx/">エディットテキスト</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">えて</b>
+</div>
+<div class="element div2" id="element123" yomi="えていつとてきすと(EditText)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000069.html">エディットテキスト(EditText)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">えみ</b>
+</div>
+<div class="element div1" id="element124" yomi="えみゆれえたあ／しつきのかめんきやふちや(すくりいんしよつと)をとるには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000243.html">エミュレーター／実機の画面キャプチャ(スクリーンショット)を撮るには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">えん</b>
+</div>
+<div class="element div2" id="element125" yomi="えん(Circle)をひようかするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000114.html">円(Circle)を描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">えん</b>
+</div>
+<div class="element div1" id="element126" yomi="えんこ(Arc)をひようかするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000122.html">円弧(Arc)を描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">おお</b>
+</div>
+<div class="element div2" id="element127" yomi="おおふんそおすのAndroidそおすこおとのしゆとくとりよう">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/Flashboot/">オープンソースのAndroidソースコードの取得と利用</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">おと</b>
+</div>
+<div class="element div1" id="element128" yomi="おとをならすには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000252.html">音を鳴らすには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">おふ</b>
+</div>
+<div class="element div2" id="element129" yomi="おふしよんめにゆう">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/OptionMenuEx/">オプションメニュー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">おん</b>
+</div>
+<div class="element div1" id="element130" yomi="おんせいこうせいのりよう">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TextToSpeechEx/">音声合成の利用</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">おん</b>
+</div>
+<div class="element div2" id="element131" yomi="おんせいにんしき(RecognizerIntent)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000164.html">音声認識(RecognizerIntent)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">おん</b>
+</div>
+<div class="element div1" id="element132" yomi="おんせいにんしきのりよう">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/RecognizeSpeechEx/">音声認識の利用</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">おん</b>
+</div>
+<div class="element div2" id="element133" yomi="おんせいのさいせい">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/MediaPlayerEx/">音声の再生</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">かあ</b>
+</div>
+<div class="element div1" id="element134" yomi="かあとへのあふりほそん">
+  <div class=prefix>SD</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/InstallLocationEx/">カードへのアプリ保存    </a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">かい</b>
+</div>
+<div class="element div2" id="element135" yomi="かいとらいん(Icon Design Guidelines)とは">
+  <div class=prefix>アイコンデザイン</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000183.html">ガイドライン(Icon Design Guidelines)とは</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">かい</b>
+</div>
+<div class="element div1" id="element136" yomi="かいはつかんきようをこうちくするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000062.html">開発環境を構築するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">かい</b>
+</div>
+<div class="element div2" id="element137" yomi="かいはつしやとうろくするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000100.html">開発者登録するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">かい</b>
+</div>
+<div class="element div1" id="element138" yomi="かいふすとれえし／しすてむのはすをしゆとくするには">
+  <div class=prefix>データ／キャッシュ／</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000134.html">外部ストレージ／システムのパスを取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">かす</b>
+</div>
+<div class="element div2" id="element139" yomi="かすたむたいあろく">
+  <div class=prefix>カスタムボタンと</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/CustomDialogEx/">カスタムダイアログ</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">かす</b>
+</div>
+<div class="element div1" id="element140" yomi="かすたむひゆうのせいせい">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/CustomViewEx/">カスタムビューの生成</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">かす</b>
+</div>
+<div class="element div2" id="element141" yomi="かすたむほたんとかすたむたいあろく">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/CustomDialogEx/">カスタムボタンとカスタムダイアログ</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">かそ</b>
+</div>
+<div class="element div1" id="element142" yomi="かそくとのしゆとく">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/SensorEx/">加速度の取得
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">かて</b>
+</div>
+<div class="element div2" id="element143" yomi="かてこり">
+  <div class=prefix>アクションと</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/action/">カテゴリ</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">かへ</b>
+</div>
+<div class="element div1" id="element144" yomi="かへかみのへんこう">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/WallpaperEx/">壁紙の変更        
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">かへ</b>
+</div>
+<div class="element div2" id="element145" yomi="かへかみをしゆとく・せつていするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000328.html">壁紙を取得・設定するには
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">かめ</b>
+</div>
+<div class="element div1" id="element146" yomi="かめらせいきよ">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/CameraEx/">カメラ制御
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">かめ</b>
+</div>
+<div class="element div2" id="element147" yomi="かめんきやふちや(すくりいんしよつと)をとるには">
+  <div class=prefix>エミュレーター／実機の</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000243.html">画面キャプチャ(スクリーンショット)を撮るには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">かめ</b>
+</div>
+<div class="element div1" id="element148" yomi="かめんのあかるさ(Screen brightness)をへんこうするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000157.html">画面の明るさ(Screen brightness)を変更するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">かめ</b>
+</div>
+<div class="element div2" id="element149" yomi="かめんひようしをするには">
+  <div class=prefix>フルスクリーン(Full Screen)/全</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000156.html">画面表示をするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">かめ</b>
+</div>
+<div class="element div1" id="element150" yomi="かめんをすりいふしようたいにさせないためには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000207.html">画面をスリープ状態にさせないためには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">かん</b>
+</div>
+<div class="element div2" id="element151" yomi="かんきようをこうちくするには">
+  <div class=prefix>開発</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000062.html">環境を構築するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">きい</b>
+</div>
+<div class="element div1" id="element152" yomi="きいいへんとにおうとうするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000325.html">キーイベントに応答するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">きい</b>
+</div>
+<div class="element div2" id="element153" yomi="きいいへんとのしより">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/KeyEx/">キーイベントの処理</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">きち</b>
+</div>
+<div class="element div1" id="element154" yomi="きちきよく・てんわこおるのしゆとく">
+  <div class=prefix>電話番号・SIM・デバイスID・サービス・通信強度・</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TelephonyEx/">基地局・電話コールの取得        </a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">きと</b>
+</div>
+<div class="element div2" id="element155" yomi="きとうもおと">
+  <div class=prefix>アクティビティの</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/LaunchMode/">起動モード</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">きや</b>
+</div>
+<div class="element div1" id="element156" yomi="きやつしゆ／かいふすとれえし／しすてむのはすをしゆとくするには">
+  <div class=prefix>データ／</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000134.html">キャッシュ／外部ストレージ／システムのパスを取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">きや</b>
+</div>
+<div class="element div2" id="element157" yomi="きやふちや(すくりいんしよつと)をとるには">
+  <div class=prefix>エミュレーター／実機の画面</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000243.html">キャプチャ(スクリーンショット)を撮るには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">きや</b>
+</div>
+<div class="element div1" id="element158" yomi="きやらりい">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/GalleryEx/">ギャラリー
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">きよ</b>
+</div>
+<div class="element div2" id="element159" yomi="きようと・きちきよく・てんわこおるのしゆとく">
+  <div class=prefix>電話番号・SIM・デバイスID・サービス・通信</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TelephonyEx/">強度・基地局・電話コールの取得        </a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">くけ</b>
+</div>
+<div class="element div1" id="element160" yomi="くけい(Rect)をひようかするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000112.html">矩形(Rect)を描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">くら</b>
+</div>
+<div class="element div2" id="element161" yomi="くらふいつくす">
+  <div class=prefix>OpenGLによる3D</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/OpenGL/">グラフィックス</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">くら</b>
+</div>
+<div class="element div1" id="element162" yomi="くらふいつくす">
+  <div class=prefix>OpenGLによる2D</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/Graphics2DEx/">グラフィックス</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">くら</b>
+</div>
+<div class="element div2" id="element163" yomi="くらふいつくす(Graphics)をひようかするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000109.html">グラフィックス(Graphics)を描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">くら</b>
+</div>
+<div class="element div1" id="element164" yomi="くらふいつくすのひようか">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/GraphicsEx/">グラフィックスの描画</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">くり</b>
+</div>
+<div class="element div2" id="element165" yomi="くりつとひゆう">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/GridViewEx/">グリッドビュー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">くろ</b>
+</div>
+<div class="element div1" id="element166" yomi="くろのめえたあ(Chronometer)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000127.html">クロノメーター(Chronometer)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">こ(</b>
+</div>
+<div class="element div2" id="element167" yomi="こ(Arc)をひようかするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000122.html">孤(Arc)を描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">こう</b>
+</div>
+<div class="element div1" id="element168" yomi="こうせいのりよう">
+  <div class=prefix>音声</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TextToSpeechEx/">合成の利用</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">こう</b>
+</div>
+<div class="element div2" id="element169" yomi="こうちくするには">
+  <div class=prefix>開発環境を</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000062.html">構築するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">こお</b>
+</div>
+<div class="element div1" id="element170" yomi="こおるのしゆとく">
+  <div class=prefix>電話番号・SIM・デバイスID・サービス・通信強度・基地局・電話</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TelephonyEx/">コールの取得        </a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">こん</b>
+</div>
+<div class="element div2" id="element171" yomi="こんてんつふろはいた">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/contentprovider/">コンテンツプロバイダ</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">こん</b>
+</div>
+<div class="element div1" id="element172" yomi="こんてんつふろはいた">
+  <div class=prefix>DBを提供する</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/DBProviderEx/">コンテンツプロバイダ</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">こん</b>
+</div>
+<div class="element div2" id="element173" yomi="こんてんつふろはいた">
+  <div class=prefix>ファイルを提供する</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/FileProviderEx/">コンテンツプロバイダ</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">こん</b>
+</div>
+<div class="element div1" id="element174" yomi="こんはす／ほういししん／ほういししやく／らしんはんをつくるには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000245.html">コンパス／方位磁針／方位磁石／羅針盤を作るには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">さあ</b>
+</div>
+<div class="element div2" id="element175" yomi="さあひす">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/ServiceEx/">サービス
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">さあ</b>
+</div>
+<div class="element div1" id="element176" yomi="さあひす・つうしんきようと・きちきよく・てんわこおるのしゆとく">
+  <div class=prefix>電話番号・SIM・デバイスID・</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TelephonyEx/">サービス・通信強度・基地局・電話コールの取得        </a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">さあ</b>
+</div>
+<div class="element div2" id="element177" yomi="さあふえいすひゆう">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/SurfaceView/">サーフェイスビュー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">さい</b>
+</div>
+<div class="element div1" id="element178" yomi="さいせい">
+  <div class=prefix>アニメーションの</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/AnimeEx/">再生</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">さい</b>
+</div>
+<div class="element div2" id="element179" yomi="さいせい">
+  <div class=prefix>動画の</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/VideoViewEx/">再生</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">さい</b>
+</div>
+<div class="element div1" id="element180" yomi="さいせい">
+  <div class=prefix>サウンドの</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/MediaPlayerEx/">再生</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">さい</b>
+</div>
+<div class="element div2" id="element181" yomi="さいせい">
+  <div class=prefix>音声の</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/MediaPlayerEx/">再生</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">さう</b>
+</div>
+<div class="element div1" id="element182" yomi="さうんとのさいせい">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/MediaPlayerEx/">サウンドの再生</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">しい</b>
+</div>
+<div class="element div2" id="element183" yomi="しいくはあ(SeekBar)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000128.html">シークバー(SeekBar)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">しえ</b>
+</div>
+<div class="element div1" id="element184" yomi="しえすちやあいへんとのしより">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/GestureDetectorEx/">ジェスチャーイベントの処理</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">しえ</b>
+</div>
+<div class="element div2" id="element185" yomi="しえすちやあらいふらりのりよう">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/GestureEx/">ジェスチャーライブラリの利用        
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">しか</b>
+</div>
+<div class="element div1" id="element186" yomi="しかんせつていたいあろく(TimePickerDialog)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000104.html">時間設定ダイアログ(TimePickerDialog)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">しこ</b>
+</div>
+<div class="element div2" id="element187" yomi="しこくせんたくたいあろく(TimePickerDialog)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000104.html">時刻選択ダイアログ(TimePickerDialog)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">しこ</b>
+</div>
+<div class="element div1" id="element188" yomi="しこくをみりひようてしゆとくするには">
+  <div class=prefix>現在の</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000119.html">時刻をミリ秒で取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">しこ</b>
+</div>
+<div class="element div2" id="element189" yomi="しこく（としつきにちしふんひよう）をしゆとくするには">
+  <div class=prefix>現在の日付・</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000099.html">時刻（年月日時分秒）を取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">しし</b>
+</div>
+<div class="element div1" id="element190" yomi="ししやく／らしんはんをつくるには">
+  <div class=prefix>コンパス／方位磁針／方位</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000245.html">磁石／羅針盤を作るには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">しし</b>
+</div>
+<div class="element div2" id="element191" yomi="ししん／ほういししやく／らしんはんをつくるには">
+  <div class=prefix>コンパス／方位</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000245.html">磁針／方位磁石／羅針盤を作るには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">しす</b>
+</div>
+<div class="element div1" id="element192" yomi="しすてむのはすをしゆとくするには">
+  <div class=prefix>データ／キャッシュ／外部ストレージ／</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000134.html">システムのパスを取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">しつ</b>
+</div>
+<div class="element div2" id="element193" yomi="しつきててはつくするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000242.html">実機でデバッグするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">しつ</b>
+</div>
+<div class="element div1" id="element194" yomi="しつきのかめんきやふちや(すくりいんしよつと)をとるには">
+  <div class=prefix>エミュレーター／</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000243.html">実機の画面キャプチャ(スクリーンショット)を撮るには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">しつ</b>
+</div>
+<div class="element div2" id="element195" yomi="しつこう">
+  <div class=prefix>Android端末での</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/Device/">実行</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">しゆ</b>
+</div>
+<div class="element div1" id="element196" yomi="しゆとうていんすとおる／あんいんすとおるするには">
+  <div class=prefix>adb経由でアプリケーションを</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000218.html">手動でインストール／アンインストールするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">しゆ</b>
+</div>
+<div class="element div2" id="element197" yomi="しゆとくするには">
+  <div class=prefix>データ／キャッシュ／外部ストレージ／システムのパスを</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000134.html">取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">しゆ</b>
+</div>
+<div class="element div1" id="element198" yomi="しゆとくするには">
+  <div class=prefix>現在の時刻をミリ秒で</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000119.html">取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">しゆ</b>
+</div>
+<div class="element div2" id="element199" yomi="しゆとくするには">
+  <div class=prefix>タッチイベント(TouchEvent)を</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000123.html">取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">しゆ</b>
+</div>
+<div class="element div1" id="element200" yomi="しゆとくするには">
+  <div class=prefix>バッテリーの情報(Battery information)を</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000140.html">取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">しゆ</b>
+</div>
+<div class="element div2" id="element201" yomi="しゆとくするには">
+  <div class=prefix>現在の日付・時刻（年月日時分秒）を</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000099.html">取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">しゆ</b>
+</div>
+<div class="element div1" id="element202" yomi="しゆとくするには">
+  <div class=prefix>ディスプレイの情報を</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000269.html">取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">しゆ</b>
+</div>
+<div class="element div2" id="element203" yomi="しゆとくするには/GPSをしようするには">
+  <div class=prefix>位置情報を</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000125.html">取得するには/GPSを使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">しよ</b>
+</div>
+<div class="element div1" id="element204" yomi="しようするには">
+  <div class=prefix>センサー(Sensor)を</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000182.html">使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">しよ</b>
+</div>
+<div class="element div2" id="element205" yomi="しよおとめつせえしさあひす）ててきすとをそうしんするには">
+  <div class=prefix>SMS(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000330.html">ショートメッセージサービス）でテキストを送信するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">しん</b>
+</div>
+<div class="element div1" id="element206" yomi="しんとうき(Vibrator)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000124.html">振動器(Vibrator)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">すう</b>
+</div>
+<div class="element div2" id="element207" yomi="すうち、すうちからもしれつへへんかんするには">
+  <div class=prefix>文字列から</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000108.html">数値、数値から文字列へ変換するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">すう</b>
+</div>
+<div class="element div1" id="element208" yomi="すうむほたんをゆうこうにするには">
+  <div class=prefix>WebViewの</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000290.html">ズームボタンを有効にするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">すく</b>
+</div>
+<div class="element div2" id="element209" yomi="すくりいん">
+  <div class=prefix>ホーム</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/HomeEx/">スクリーン</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">すく</b>
+</div>
+<div class="element div1" id="element210" yomi="すくりいん(Full Screen)/せんかめんひようしをするには">
+  <div class=prefix>フル</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000156.html">スクリーン(Full Screen)/全画面表示をするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">すく</b>
+</div>
+<div class="element div2" id="element211" yomi="すくりいんういしえつと">
+  <div class=prefix>ホーム</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/AppWidgetEx/">スクリーンウィジェット</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">すく</b>
+</div>
+<div class="element div1" id="element212" yomi="すくりいんしよつと)をとるには">
+  <div class=prefix>エミュレーター／実機の画面キャプチャ(</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000243.html">スクリーンショット)を撮るには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">すく</b>
+</div>
+<div class="element div2" id="element213" yomi="すくろおるひゆう">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/ScrollViewEx/">スクロールビュー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">すと</b>
+</div>
+<div class="element div1" id="element214" yomi="すとれえし／しすてむのはすをしゆとくするには">
+  <div class=prefix>データ／キャッシュ／外部</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000134.html">ストレージ／システムのパスを取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">すな</b>
+</div>
+<div class="element div2" id="element215" yomi="すなつふしよつとのほそん">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/SnapShotEx/">スナップショットの保存    
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">すひ</b>
+</div>
+<div class="element div1" id="element216" yomi="すひなあ">
+  <div class=prefix>チェックボックスとラジオボタンと</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/CheckBoxEx/">スピナー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">すひ</b>
+</div>
+<div class="element div2" id="element217" yomi="すひなあ(Spinner)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000074.html">スピナー(Spinner)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">すら</b>
+</div>
+<div class="element div1" id="element218" yomi="すらいていんくとろおわあ(SlidingDrawer)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000160.html">スライディングドローワー(SlidingDrawer)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">すら</b>
+</div>
+<div class="element div2" id="element219" yomi="すらいていんくとろわあ">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/SlidingDrawerEx/">スライディングドロワー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">すり</b>
+</div>
+<div class="element div1" id="element220" yomi="すりいふしようたいにさせないためには">
+  <div class=prefix>画面を</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000207.html">スリープ状態にさせないためには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">せん</b>
+</div>
+<div class="element div2" id="element221" yomi="せんい">
+  <div class=prefix>呼び出し元アクティビティへの</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/CalledActivityEx/">遷移</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">せん</b>
+</div>
+<div class="element div1" id="element222" yomi="せんいしのあにめえしよん">
+  <div class=prefix>アクティビティ</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TransitionEx/">遷移時のアニメーション</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">せん</b>
+</div>
+<div class="element div2" id="element223" yomi="せんかめんひようしをするには">
+  <div class=prefix>フルスクリーン(Full Screen)/</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000156.html">全画面表示をするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">せん</b>
+</div>
+<div class="element div1" id="element224" yomi="せんさあ(Sensor)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000182.html">センサー(Sensor)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">せん</b>
+</div>
+<div class="element div2" id="element225" yomi="せんさあ(Sensor)をつかうには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000182.html">センサー(Sensor)を使うには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">そう</b>
+</div>
+<div class="element div1" id="element226" yomi="そうしんするには">
+  <div class=prefix>SMS(ショートメッセージサービス）でテキストを</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000330.html">送信するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">そお</b>
+</div>
+<div class="element div2" id="element227" yomi="そおすこおとのしゆとくとりよう">
+  <div class=prefix>オープンソースのAndroid</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/Flashboot/">ソースコードの取得と利用</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">そお</b>
+</div>
+<div class="element div1" id="element228" yomi="そおすこおとをたうんろおと・ひるとするには">
+  <div class=prefix>Android</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000118.html">ソースコードをダウンロード・ビルドするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">そお</b>
+</div>
+<div class="element div2" id="element229" yomi="そおすこおとをとりこむには">
+  <div class=prefix>Eclipseに</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000220.html">ソースコードを取り込むには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">そけ</b>
+</div>
+<div class="element div1" id="element230" yomi="そけつとつうしん">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/SocketEx/">ソケット通信</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">たい</b>
+</div>
+<div class="element div2" id="element231" yomi="たいあろく">
+  <div class=prefix>カスタムボタンとカスタム</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/CustomDialogEx/">ダイアログ</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">たい</b>
+</div>
+<div class="element div1" id="element232" yomi="たいあろく">
+  <div class=prefix>ボタンと</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/ButtonEx/">ダイアログ</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">たい</b>
+</div>
+<div class="element div2" id="element233" yomi="たいあろく(AlertDialog)をしようするには">
+  <div class=prefix>アラート</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000083.html">ダイアログ(AlertDialog)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">たい</b>
+</div>
+<div class="element div1" id="element234" yomi="たいあろく(DatePickerDialog)をしようするには">
+  <div class=prefix>日付選択</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000103.html">ダイアログ(DatePickerDialog)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">たい</b>
+</div>
+<div class="element div2" id="element235" yomi="たいあろく(ProgressDialog)をしようするには">
+  <div class=prefix>プログレス</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000082.html">ダイアログ(ProgressDialog)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">たい</b>
+</div>
+<div class="element div1" id="element236" yomi="たいあろく(TimePickerDialog)をしようするには">
+  <div class=prefix>時間設定</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000104.html">ダイアログ(TimePickerDialog)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">たい</b>
+</div>
+<div class="element div2" id="element237" yomi="たいあろく(TimePickerDialog)をしようするには">
+  <div class=prefix>時刻選択</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000104.html">ダイアログ(TimePickerDialog)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">たい</b>
+</div>
+<div class="element div1" id="element238" yomi="たいとるはあにあいこんをひようしするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000331.html">タイトルバーにアイコンを表示するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">たい</b>
+</div>
+<div class="element div2" id="element239" yomi="たいとるはあをひひようしにするには">
+  <div class=prefix>ウィンドウ</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000155.html">タイトルバーを非表示にするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">たう</b>
+</div>
+<div class="element div1" id="element240" yomi="たうんろおと・ひるとするには">
+  <div class=prefix>Androidソースコードを</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000118.html">ダウンロード・ビルドするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">たえ</b>
+</div>
+<div class="element div2" id="element241" yomi="たえん(Oval)をひようかするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000113.html">楕円(Oval)を描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">たつ</b>
+</div>
+<div class="element div1" id="element242" yomi="たつちいへんと(TouchEvent)をしゆとくするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000123.html">タッチイベント(TouchEvent)を取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">たつ</b>
+</div>
+<div class="element div2" id="element243" yomi="たつちいへんとのしより">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TouchEx/">タッチイベントの処理</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">たつ</b>
+</div>
+<div class="element div1" id="element244" yomi="たつちいへんとのしより">
+  <div class=prefix>マルチ</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/MultiTouchEx/">タッチイベントの処理</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">たん</b>
+</div>
+<div class="element div2" id="element245" yomi="たんまつてのしつこう">
+  <div class=prefix>Android</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/Device/">端末での実行</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">ちえ</b>
+</div>
+<div class="element div1" id="element246" yomi="ちえつくほつくす(CheckBox)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000066.html">チェックボックス(CheckBox)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ちえ</b>
+</div>
+<div class="element div2" id="element247" yomi="ちえつくほつくすとらしおほたんとすひなあ">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/CheckBoxEx/">チェックボックスとラジオボタンとスピナー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">ちよ</b>
+</div>
+<div class="element div1" id="element248" yomi="ちよくせん(Line)をひようかするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000110.html">直線(Line)を描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">つう</b>
+</div>
+<div class="element div2" id="element249" yomi="つうしん">
+  <div class=prefix>ソケット</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/SocketEx/">通信</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">つう</b>
+</div>
+<div class="element div1" id="element250" yomi="つうしん">
+  <div class=prefix>HTTP</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/HttpEx/">通信</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">つう</b>
+</div>
+<div class="element div2" id="element251" yomi="つうしん">
+  <div class=prefix>OAuthによるTwitter</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/OAuthTwitterEx/">通信</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">つう</b>
+</div>
+<div class="element div1" id="element252" yomi="つうしんきようと・きちきよく・てんわこおるのしゆとく">
+  <div class=prefix>電話番号・SIM・デバイスID・サービス・</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TelephonyEx/">通信強度・基地局・電話コールの取得        </a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">つか</b>
+</div>
+<div class="element div2" id="element253" yomi="つかうには">
+  <div class=prefix>センサー(Sensor)を</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000182.html">使うには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">てい</b>
+</div>
+<div class="element div1" id="element254" yomi="ていすふれいのしようほうをしゆとくするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000269.html">ディスプレイの情報を取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">てえ</b>
+</div>
+<div class="element div2" id="element255" yomi="てえたへえすのよみかき">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/SQLiteEx/">データベースの読み書き</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">てえ</b>
+</div>
+<div class="element div1" id="element256" yomi="てえた／きやつしゆ／かいふすとれえし／しすてむのはすをしゆとくするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000134.html">データ／キャッシュ／外部ストレージ／システムのパスを取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">てえ</b>
+</div>
+<div class="element div2" id="element257" yomi="てえふるれいあうと">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TableLayoutEx/">テーブルレイアウト</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">てき</b>
+</div>
+<div class="element div1" id="element258" yomi="てきすと">
+  <div class=prefix>エディット</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/EditTextEx/">テキスト</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">てき</b>
+</div>
+<div class="element div2" id="element259" yomi="てきすと(EditText)をしようするには">
+  <div class=prefix>エディット</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000069.html">テキスト(EditText)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">てき</b>
+</div>
+<div class="element div1" id="element260" yomi="てきすとひゆう(TextView)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000071.html">テキストビュー(TextView)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">てき</b>
+</div>
+<div class="element div2" id="element261" yomi="てきすとひゆうといめえしひゆう">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TextViewEx/">テキストビューとイメージビュー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">てさ</b>
+</div>
+<div class="element div1" id="element262" yomi="てさいんかいとらいん(Icon Design Guidelines)とは">
+  <div class=prefix>アイコン</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000183.html">デザインガイドライン(Icon Design Guidelines)とは</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">てし</b>
+</div>
+<div class="element div2" id="element263" yomi="てしたるとけい(DigitalClock)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000117.html">デジタル時計(DigitalClock)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">ては</b>
+</div>
+<div class="element div1" id="element264" yomi="てはいすID・さあひす・つうしんきようと・きちきよく・てんわこおるのしゆとく">
+  <div class=prefix>電話番号・SIM・</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TelephonyEx/">デバイスID・サービス・通信強度・基地局・電話コールの取得        </a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ては</b>
+</div>
+<div class="element div2" id="element265" yomi="てはつく">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/DDMS/">デバッグ
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ては</b>
+</div>
+<div class="element div1" id="element266" yomi="てはつくするには">
+  <div class=prefix>実機で</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000242.html">デバッグするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">てん</b>
+</div>
+<div class="element div2" id="element267" yomi="てん(Point)をひようかするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000115.html">点(Point)を描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">てん</b>
+</div>
+<div class="element div1" id="element268" yomi="てんちしようほうのしゆとく">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/BatteryEx/">電池情報の取得    
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">てん</b>
+</div>
+<div class="element div2" id="element269" yomi="てんわこおるのしゆとく">
+  <div class=prefix>電話番号・SIM・デバイスID・サービス・通信強度・基地局・</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TelephonyEx/">電話コールの取得        </a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">てん</b>
+</div>
+<div class="element div1" id="element270" yomi="てんわはんこうをしゆとくするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000324.html">電話番号を取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">てん</b>
+</div>
+<div class="element div2" id="element271" yomi="てんわはんこう・SIM・てはいすID・さあひす・つうしんきようと・きちきよく・てんわこおるのしゆとく">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TelephonyEx/">電話番号・SIM・デバイスID・サービス・通信強度・基地局・電話コールの取得        </a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">てん</b>
+</div>
+<div class="element div1" id="element272" yomi="てんわをかけるそおすこおとは">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000206.html">電話をかけるソースコードは
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">とう</b>
+</div>
+<div class="element div2" id="element273" yomi="とういいんあにめえしよん">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TweenAnimationEx/">トゥイーンアニメーション</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">とう</b>
+</div>
+<div class="element div1" id="element274" yomi="とうかにするには">
+  <div class=prefix>アクティビティ（画面）の背景を</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000265.html">透過にするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">とう</b>
+</div>
+<div class="element div2" id="element275" yomi="とうかのさいせい">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/VideoViewEx/">動画の再生</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">とう</b>
+</div>
+<div class="element div1" id="element276" yomi="とうろくするには">
+  <div class=prefix>開発者</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000100.html">登録するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">とお</b>
+</div>
+<div class="element div2" id="element277" yomi="とおすと(Toast)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000086.html">トースト(Toast)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">とお</b>
+</div>
+<div class="element div1" id="element278" yomi="とおんをならすには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000252.html">トーンを鳴らすには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">とけ</b>
+</div>
+<div class="element div2" id="element279" yomi="とけい(AnalogClock)をしようするには">
+  <div class=prefix>アナログ</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000116.html">時計(AnalogClock)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">とけ</b>
+</div>
+<div class="element div1" id="element280" yomi="とけい(DigitalClock)をしようするには">
+  <div class=prefix>デジタル</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000117.html">時計(DigitalClock)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">とろ</b>
+</div>
+<div class="element div2" id="element281" yomi="とろおわあ(SlidingDrawer)をしようするには">
+  <div class=prefix>スライディング</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000160.html">ドローワー(SlidingDrawer)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">とろ</b>
+</div>
+<div class="element div1" id="element282" yomi="とろわあ">
+  <div class=prefix>スライディング</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/SlidingDrawerEx/">ドロワー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">なら</b>
+</div>
+<div class="element div2" id="element283" yomi="ならすには">
+  <div class=prefix>トーンを</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000252.html">鳴らすには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">なら</b>
+</div>
+<div class="element div1" id="element284" yomi="ならすには">
+  <div class=prefix>音を</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000252.html">鳴らすには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">にん</b>
+</div>
+<div class="element div2" id="element285" yomi="にんしき(RecognizerIntent)をしようするには">
+  <div class=prefix>音声</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000164.html">認識(RecognizerIntent)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">にん</b>
+</div>
+<div class="element div1" id="element286" yomi="にんしきのりよう">
+  <div class=prefix>音声</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/RecognizeSpeechEx/">認識の利用</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">はあ</b>
+</div>
+<div class="element div2" id="element287" yomi="はあ(ProgressBar)をしようするには">
+  <div class=prefix>プログレス</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000079.html">バー(ProgressBar)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">はあ</b>
+</div>
+<div class="element div1" id="element288" yomi="はあ(RatingBar)をしようするには">
+  <div class=prefix>レイティング</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000136.html">バー(RatingBar)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">はあ</b>
+</div>
+<div class="element div2" id="element289" yomi="はあ(SeekBar)をしようするには">
+  <div class=prefix>シーク</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000128.html">バー(SeekBar)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">はあ</b>
+</div>
+<div class="element div1" id="element290" yomi="はあしよん">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/version/">バージョン
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">はあ</b>
+</div>
+<div class="element div2" id="element291" yomi="はあにあいこんをひようしするには">
+  <div class=prefix>タイトル</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000331.html">バーにアイコンを表示するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">はあ</b>
+</div>
+<div class="element div1" id="element292" yomi="はあをひひようしにするには">
+  <div class=prefix>ウィンドウタイトル</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000155.html">バーを非表示にするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">はい</b>
+</div>
+<div class="element div2" id="element293" yomi="はいふれえた(Vibrator)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000124.html">バイブレータ(Vibrator)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">はす</b>
+</div>
+<div class="element div1" id="element294" yomi="はす(Path)をひようかするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000137.html">パス(Path)を描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">はす</b>
+</div>
+<div class="element div2" id="element295" yomi="はすをしゆとくするには">
+  <div class=prefix>データ／キャッシュ／外部ストレージ／システムの</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000134.html">パスを取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">はつ</b>
+</div>
+<div class="element div1" id="element296" yomi="はつけえし">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/Package/">パッケージ
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">はつ</b>
+</div>
+<div class="element div2" id="element297" yomi="はつてりいしようほうのしゆとく">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/BatteryEx/">バッテリー情報の取得    
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">はつ</b>
+</div>
+<div class="element div1" id="element298" yomi="はつてりいのしようほう(Battery information)をしゆとくするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000140.html">バッテリーの情報(Battery information)を取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">はん</b>
+</div>
+<div class="element div2" id="element299" yomi="はんこうをしゆとくするには">
+  <div class=prefix>電話</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000324.html">番号を取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">ひつ</b>
+</div>
+<div class="element div1" id="element300" yomi="ひつけせんたくたいあろく(DatePickerDialog)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000103.html">日付選択ダイアログ(DatePickerDialog)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ひつ</b>
+</div>
+<div class="element div2" id="element301" yomi="ひつけ・しこく（としつきにちしふんひよう）をしゆとくするには">
+  <div class=prefix>現在の</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000099.html">日付・時刻（年月日時分秒）を取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ひつ</b>
+</div>
+<div class="element div1" id="element302" yomi="ひつとまつふ">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/bitmap/">ビットマップ
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">ひと</b>
+</div>
+<div class="element div2" id="element303" yomi="ひとうきしより">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/thread/">非同期処理
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">ひゆ</b>
+</div>
+<div class="element div1" id="element304" yomi="ひゆう">
+  <div class=prefix>リスト</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/ListViewEx/">ビュー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ひゆ</b>
+</div>
+<div class="element div2" id="element305" yomi="ひゆう">
+  <div class=prefix>サーフェイス</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/SurfaceView/">ビュー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ひゆ</b>
+</div>
+<div class="element div1" id="element306" yomi="ひゆう">
+  <div class=prefix>WEB</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/WebViewEx/">ビュー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ひゆ</b>
+</div>
+<div class="element div2" id="element307" yomi="ひゆう">
+  <div class=prefix>スクロール</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/ScrollViewEx/">ビュー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ひゆ</b>
+</div>
+<div class="element div1" id="element308" yomi="ひゆう">
+  <div class=prefix>マップ</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/MapViewEx/">ビュー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ひゆ</b>
+</div>
+<div class="element div2" id="element309" yomi="ひゆう">
+  <div class=prefix>テキストビューとイメージ</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TextViewEx/">ビュー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ひゆ</b>
+</div>
+<div class="element div1" id="element310" yomi="ひゆう">
+  <div class=prefix>グリッド</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/GridViewEx/">ビュー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ひゆ</b>
+</div>
+<div class="element div2" id="element311" yomi="ひゆう(ListView)をしようするには">
+  <div class=prefix>リスト</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000077.html">ビュー(ListView)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ひゆ</b>
+</div>
+<div class="element div1" id="element312" yomi="ひゆう(TextView)をしようするには">
+  <div class=prefix>テキスト</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000071.html">ビュー(TextView)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ひゆ</b>
+</div>
+<div class="element div2" id="element313" yomi="ひゆうといめえしひゆう">
+  <div class=prefix>テキスト</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TextViewEx/">ビューとイメージビュー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ひゆ</b>
+</div>
+<div class="element div1" id="element314" yomi="ひゆうのせいせい">
+  <div class=prefix>カスタム</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/CustomViewEx/">ビューの生成</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">ひよ</b>
+</div>
+<div class="element div2" id="element315" yomi="ひようか">
+  <div class=prefix>グラフィックスの</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/GraphicsEx/">描画</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ひよ</b>
+</div>
+<div class="element div1" id="element316" yomi="ひようか">
+  <div class=prefix>イメージの</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/BitmapEx/">描画</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ひよ</b>
+</div>
+<div class="element div2" id="element317" yomi="ひようかするには">
+  <div class=prefix>矩形(Rect)を</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000112.html">描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ひよ</b>
+</div>
+<div class="element div1" id="element318" yomi="ひようかするには">
+  <div class=prefix>円(Circle)を</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000114.html">描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ひよ</b>
+</div>
+<div class="element div2" id="element319" yomi="ひようかするには">
+  <div class=prefix>直線(Line)を</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000110.html">描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ひよ</b>
+</div>
+<div class="element div1" id="element320" yomi="ひようかするには">
+  <div class=prefix>点(Point)を</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000115.html">描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ひよ</b>
+</div>
+<div class="element div2" id="element321" yomi="ひようかするには">
+  <div class=prefix>楕円(Oval)を</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000113.html">描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ひよ</b>
+</div>
+<div class="element div1" id="element322" yomi="ひようかするには">
+  <div class=prefix>円弧(Arc)を</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000122.html">描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ひよ</b>
+</div>
+<div class="element div2" id="element323" yomi="ひようかするには">
+  <div class=prefix>グラフィックス(Graphics)を</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000109.html">描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ひよ</b>
+</div>
+<div class="element div1" id="element324" yomi="ひようかするには">
+  <div class=prefix>孤(Arc)を</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000122.html">描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ひよ</b>
+</div>
+<div class="element div2" id="element325" yomi="ひようかするには">
+  <div class=prefix>パス(Path)を</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000137.html">描画するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ひよ</b>
+</div>
+<div class="element div1" id="element326" yomi="ひようし">
+  <div class=prefix>文字列の</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/StringEx/">表示</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ひよ</b>
+</div>
+<div class="element div2" id="element327" yomi="ひようしするには">
+  <div class=prefix>タイトルバーにアイコンを</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000331.html">表示するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">ひる</b>
+</div>
+<div class="element div1" id="element328" yomi="ひるとするには">
+  <div class=prefix>Androidソースコードをダウンロード・</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000118.html">ビルドするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">ふあ</b>
+</div>
+<div class="element div2" id="element329" yomi="ふああむうえあこうしん">
+  <div class=prefix>Dev Phone 1のアクティベーションと</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/DevPhone1/">ファームウェア更新</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ふあ</b>
+</div>
+<div class="element div1" id="element330" yomi="ふあいるのよみかき">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/FileEx/">ファイルの読み書き</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ふあ</b>
+</div>
+<div class="element div2" id="element331" yomi="ふあいるよみかき">
+  <div class=prefix>他のアプリのリソース取得と</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/SharedEx/">ファイル読み書き</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ふあ</b>
+</div>
+<div class="element div1" id="element332" yomi="ふあいるをていきようするこんてんつふろはいた">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/FileProviderEx/">ファイルを提供するコンテンツプロバイダ</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ふあ</b>
+</div>
+<div class="element div2" id="element333" yomi="ふあいるをよみかきするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000240.html">ファイルを読み書きするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">ふう</b>
+</div>
+<div class="element div1" id="element334" yomi="ふうとこのみりひようをしゆとくするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000120.html">ブート後のミリ秒を取得するには
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">ふお</b>
+</div>
+<div class="element div2" id="element335" yomi="ふおるたあ">
+  <div class=prefix>ライブ</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/LiveFolderEx/">フォルダー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">ふり</b>
+</div>
+<div class="element div1" id="element336" yomi="ふりふあれんすのよみかき">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/PreferencesEx/">プリファレンスの読み書き</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">ふる</b>
+</div>
+<div class="element div2" id="element337" yomi="ふるすくりいん(Full Screen)/せんかめんひようしをするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000156.html">フルスクリーン(Full Screen)/全画面表示をするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">ふれ</b>
+</div>
+<div class="element div1" id="element338" yomi="ふれえむあにめえしよん">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/FrameAnimationEx/">フレームアニメーション</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ふれ</b>
+</div>
+<div class="element div2" id="element339" yomi="ふれえむれいあうと">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/FrameLayoutEx/">フレームレイアウト</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">ふろ</b>
+</div>
+<div class="element div1" id="element340" yomi="ふろおときやすとれしいはあ">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/IntentReceiverEx/">ブロードキャストレシーバー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ふろ</b>
+</div>
+<div class="element div2" id="element341" yomi="ふろくれすたいあろく(ProgressDialog)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000082.html">プログレスダイアログ(ProgressDialog)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ふろ</b>
+</div>
+<div class="element div1" id="element342" yomi="ふろくれすはあ(ProgressBar)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000079.html">プログレスバー(ProgressBar)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ふろ</b>
+</div>
+<div class="element div2" id="element343" yomi="ふろはいた">
+  <div class=prefix>ファイルを提供するコンテンツ</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/FileProviderEx/">プロバイダ</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ふろ</b>
+</div>
+<div class="element div1" id="element344" yomi="ふろはいた">
+  <div class=prefix>コンテンツ</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/contentprovider/">プロバイダ</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ふろ</b>
+</div>
+<div class="element div2" id="element345" yomi="ふろはいた">
+  <div class=prefix>DBを提供するコンテンツ</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/DBProviderEx/">プロバイダ</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">へる</b>
+</div>
+<div class="element div1" id="element346" yomi="へるふ(Help)をさんしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000097.html">ヘルプ(Help)を参照するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">へん</b>
+</div>
+<div class="element div2" id="element347" yomi="へんかんするには">
+  <div class=prefix>文字列から数値、数値から文字列へ</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000108.html">変換するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">へん</b>
+</div>
+<div class="element div1" id="element348" yomi="へんこうするには">
+  <div class=prefix>画面の明るさ(Screen brightness)を</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000157.html">変更するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">ほう</b>
+</div>
+<div class="element div2" id="element349" yomi="ほういししやく／らしんはんをつくるには">
+  <div class=prefix>コンパス／方位磁針／</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000245.html">方位磁石／羅針盤を作るには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ほう</b>
+</div>
+<div class="element div1" id="element350" yomi="ほういししん／ほういししやく／らしんはんをつくるには">
+  <div class=prefix>コンパス／</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000245.html">方位磁針／方位磁石／羅針盤を作るには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">ほお</b>
+</div>
+<div class="element div2" id="element351" yomi="ほおむすくりいん">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/HomeEx/">ホームスクリーン</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ほお</b>
+</div>
+<div class="element div1" id="element352" yomi="ほおむすくりいんういしえつと">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/AppWidgetEx/">ホームスクリーンウィジェット</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">ほた</b>
+</div>
+<div class="element div2" id="element353" yomi="ほたん(Button)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000065.html">ボタン(Button)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ほた</b>
+</div>
+<div class="element div1" id="element354" yomi="ほたん(RadioButton)をしようするには">
+  <div class=prefix>ラジオ</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000067.html">ボタン(RadioButton)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ほた</b>
+</div>
+<div class="element div2" id="element355" yomi="ほたんとかすたむたいあろく">
+  <div class=prefix>カスタム</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/CustomDialogEx/">ボタンとカスタムダイアログ</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ほた</b>
+</div>
+<div class="element div1" id="element356" yomi="ほたんとすひなあ">
+  <div class=prefix>チェックボックスとラジオ</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/CheckBoxEx/">ボタンとスピナー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ほた</b>
+</div>
+<div class="element div2" id="element357" yomi="ほたんとたいあろく">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/ButtonEx/">ボタンとダイアログ</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ほた</b>
+</div>
+<div class="element div1" id="element358" yomi="ほたんをゆうこうにするには">
+  <div class=prefix>WebViewのズーム</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000290.html">ボタンを有効にするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">ほつ</b>
+</div>
+<div class="element div2" id="element359" yomi="ほつくす(CheckBox)をしようするには">
+  <div class=prefix>チェック</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000066.html">ボックス(CheckBox)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">ほつ</b>
+</div>
+<div class="element div1" id="element360" yomi="ほつくすとらしおほたんとすひなあ">
+  <div class=prefix>チェック</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/CheckBoxEx/">ボックスとラジオボタンとスピナー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">まつ</b>
+</div>
+<div class="element div2" id="element361" yomi="まつふひゆう">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/MapViewEx/">マップビュー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">まに</b>
+</div>
+<div class="element div1" id="element362" yomi="まにふえすとふあいる">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/AndroidManifest/">マニフェストファイル
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">まる</b>
+</div>
+<div class="element div2" id="element363" yomi="まるちたつちいへんとのしより">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/MultiTouchEx/">マルチタッチイベントの処理</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">みり</b>
+</div>
+<div class="element div1" id="element364" yomi="みりひようてしゆとくするには">
+  <div class=prefix>現在の時刻を</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000119.html">ミリ秒で取得するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">めつ</b>
+</div>
+<div class="element div2" id="element365" yomi="めつせえしさあひす）ててきすとをそうしんするには">
+  <div class=prefix>SMS(ショート</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000330.html">メッセージサービス）でテキストを送信するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">めに</b>
+</div>
+<div class="element div1" id="element366" yomi="めにゆう">
+  <div class=prefix>オプション</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/OptionMenuEx/">メニュー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">めに</b>
+</div>
+<div class="element div2" id="element367" yomi="めにゆう(Menu)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000085.html">メニュー(Menu)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">めも</b>
+</div>
+<div class="element div1" id="element368" yomi="めもりしようほうをしゆとくするには（ActivityManagerへん）">
+  <div class=prefix>システムの</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000327.html">メモリ情報を取得するには（ActivityManager編）</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">めも</b>
+</div>
+<div class="element div2" id="element369" yomi="めもりしようほうをしゆとくするには（StatFsへん）">
+  <div class=prefix>システムの</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000272.html">メモリ情報を取得するには（StatFs編）</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">もし</b>
+</div>
+<div class="element div1" id="element370" yomi="もしれつからすうち、すうちからもしれつへへんかんするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000108.html">文字列から数値、数値から文字列へ変換するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">もし</b>
+</div>
+<div class="element div2" id="element371" yomi="もしれつのひようし">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/StringEx/">文字列の表示</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">ゆう</b>
+</div>
+<div class="element div1" id="element372" yomi="ゆうていりてい">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/util/">ユーティリティ
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">よみ</b>
+</div>
+<div class="element div2" id="element373" yomi="よみかき">
+  <div class=prefix>データベースの</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/SQLiteEx/">読み書き</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">よみ</b>
+</div>
+<div class="element div1" id="element374" yomi="よみかき">
+  <div class=prefix>他のアプリのリソース取得とファイル</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/SharedEx/">読み書き</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">よみ</b>
+</div>
+<div class="element div2" id="element375" yomi="よみかき">
+  <div class=prefix>プリファレンスの</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/PreferencesEx/">読み書き</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">よみ</b>
+</div>
+<div class="element div1" id="element376" yomi="よみかき">
+  <div class=prefix>ファイルの</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/FileEx/">読み書き</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">よみ</b>
+</div>
+<div class="element div2" id="element377" yomi="よみかきするには">
+  <div class=prefix>ファイルを</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000240.html">読み書きするには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">らい</b>
+</div>
+<div class="element div1" id="element378" yomi="らいなあれいあうと">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/LinerLayoutEx/">ライナーレイアウト</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">らい</b>
+</div>
+<div class="element div2" id="element379" yomi="らいふうおおるへえはあ">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/LiveWallpaperEx/">ライブウォールペーパー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">らい</b>
+</div>
+<div class="element div1" id="element380" yomi="らいふふおるたあ">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/LiveFolderEx/">ライブフォルダー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">らし</b>
+</div>
+<div class="element div2" id="element381" yomi="らしおほたん(RadioButton)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000067.html">ラジオボタン(RadioButton)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">らし</b>
+</div>
+<div class="element div1" id="element382" yomi="らしおほたんとすひなあ">
+  <div class=prefix>チェックボックスと</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/CheckBoxEx/">ラジオボタンとスピナー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">らし</b>
+</div>
+<div class="element div2" id="element383" yomi="らしんはんをつくるには">
+  <div class=prefix>コンパス／方位磁針／方位磁石／</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000245.html">羅針盤を作るには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">りす</b>
+</div>
+<div class="element div1" id="element384" yomi="りすとひゆう">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/ListViewEx/">リストビュー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">りす</b>
+</div>
+<div class="element div2" id="element385" yomi="りすとひゆう(ListView)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000077.html">リストビュー(ListView)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">りそ</b>
+</div>
+<div class="element div1" id="element386" yomi="りそおす">
+  <div class=prefix>内蔵アイコン</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/iconres/">リソース</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">りそ</b>
+</div>
+<div class="element div2" id="element387" yomi="りそおすからBitmapいんすたんすをえるには">
+  <div class=prefix>BMP/JPG/PNG/GIFイメージ</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000280.html">リソースからBitmapインスタンスを得るには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">りそ</b>
+</div>
+<div class="element div1" id="element388" yomi="りそおすしゆとくとふあいるよみかき">
+  <div class=prefix>他のアプリの</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/SharedEx/">リソース取得とファイル読み書き</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">りそ</b>
+</div>
+<div class="element div2" id="element389" yomi="りそおすとあせつと">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/res/">リソースとアセット</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">りふ</b>
+</div>
+<div class="element div1" id="element390" yomi="りふれくしよん">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/refrection/">リフレクション
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">るう</b>
+</div>
+<div class="element div2" id="element391" yomi="るうふ">
+  <div class=prefix>アクティビティグ</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/ActivityGroupEx/">ループ</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">れい</b>
+</div>
+<div class="element div1" id="element392" yomi="れいあうと">
+  <div class=prefix>テーブル</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/TableLayoutEx/">レイアウト</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">れい</b>
+</div>
+<div class="element div2" id="element393" yomi="れいあうと">
+  <div class=prefix>ライナー</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/LinerLayoutEx/">レイアウト</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">れい</b>
+</div>
+<div class="element div1" id="element394" yomi="れいあうと">
+  <div class=prefix>フレーム</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/FrameLayoutEx/">レイアウト</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">れい</b>
+</div>
+<div class="element div2" id="element395" yomi="れいあうと">
+  <div class=prefix>レラティブ</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/RelativeLayoutEx/">レイアウト</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">れい</b>
+</div>
+<div class="element div1" id="element396" yomi="れいあうと">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/layout/">レイアウト
+</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">れい</b>
+</div>
+<div class="element div2" id="element397" yomi="れいあうと">
+  <div class=prefix>XML</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/XMLLayoutEx/">レイアウト</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">れい</b>
+</div>
+<div class="element div1" id="element398" yomi="れいあうと">
+  <div class=prefix>アブソリュート</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/AbsoluteLayoutEx/">レイアウト</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="gray">れい</b>
+</div>
+<div class="element div2" id="element399" yomi="れいていんくはあ(RatingBar)をしようするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000136.html">レイティングバー(RatingBar)を使用するには</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">れし</b>
+</div>
+<div class="element div1" id="element400" yomi="れしいはあ">
+  <div class=prefix>ブロードキャスト</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/IntentReceiverEx/">レシーバー</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">れら</b>
+</div>
+<div class="element div2" id="element401" yomi="れらていふれいあうと">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.saturn.dti.ne.jp/~npaka/android/RelativeLayoutEx/">レラティブレイアウト</a></div>
+</div>
+<div style="float:left;width:60;">
+  <b class="black">ろく</b>
+</div>
+<div class="element div1" id="element402" yomi="ろく(Log)をしゆつりよくするには">
+  <div class=prefix>&nbsp;</div>
+  <div class=entry>　　<a href="http://www.adakoda.com/android/000064.html">ログ(Log)を出力するには</a></div>
+</div>
+
+</body>
+</html>
