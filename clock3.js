@@ -14,13 +14,10 @@ settime = (hour,min,sec) => {
     let totalsec = hour * 3600 + min * 60 + sec;
     let x = totalsec / 4 / 80;
     $('#knob').css('left',x + 13);
-<<<<<<< HEAD
     $('#cursor').css('top',$('#slider').css('offsetTop') + 20);
     $('#cursor').css('left',x + 13 + 10);
-=======
     $('#cursor').css('top',$('#slider').css('offsetTop'));
     $('#cursor').css('left',x + 13);
->>>>>>> a4c24414b40711acdb43d330830b4e2e22cb180c
     
     $('#time').css('top',46);
     $('#time').css('left',x + 2);
