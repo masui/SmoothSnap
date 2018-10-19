@@ -1,11 +1,6 @@
-<<<<<<< HEAD
 //
 // SmoothSnapで時刻設定
 //
-var hour = 12, min = 0, sec = 0;
-var newhour = 12, newmin = 0, newsec = 0;
-
-=======
 var hour = 12, min = 0, sec = 0;
 var newhour = 12, newmin = 0, newsec = 0;
 
@@ -13,25 +8,23 @@ var showstatus = false;
 
 dummyEventHandler = (event) => {}
 
->>>>>>> a4c24414b40711acdb43d330830b4e2e22cb180c
 pos =  (hour,min,sec) => {
     return (hour * 3600 + min * 60 + sec) / 4 / 80;
+
+
+    // 時刻表示
+    $('#hour').text(hour);
+    $('#sec').text(('0'+s).slice(-2));
 }
 
 display = (h,m,s) => {
-    // 時刻表示
     $('#time').css('top',00);
     $('#time').css('left',10);
-    $('#hour').text(h);
     $('#min').text(('0'+m).slice(-2)); // 0詰め
-    $('#sec').text(('0'+s).slice(-2));
-
     $('#time').css('left',pos(h,m,s));
 
     $('#tab').css('left',pos(h,m,s)-30);
     $('#tab').css('top',-5);
-<<<<<<< HEAD
-=======
 
     //pos1 = pos(hour,min,sec);
     //pos2 = pos(newhour,newmin,newsec);
@@ -45,7 +38,6 @@ display = (h,m,s) => {
     //$('#text1').text(pos1);
     // 
 
->>>>>>> a4c24414b40711acdb43d330830b4e2e22cb180c
 }
 
 mouseposx = (e) => {
@@ -56,16 +48,12 @@ mouseposy = (e) => {
   return e.pageY ? e.pageY : event.touches[0].pageY;
 }
 
-<<<<<<< HEAD
-=======
-
->>>>>>> a4c24414b40711acdb43d330830b4e2e22cb180c
 var mousedownx = 0;
+var clicked = false;
 var mousedowny = 0;
+var mintable = [];
 var mousex = 0;
 var mousey = 0;
-var clicked = false;
-var mintable = [];
 var hourtable = [];
 var sectable = [];
 var fakemousex, fakemousey;
@@ -211,13 +199,11 @@ settable = (hour,min,sec) => {
 }
 
 mousedown = (event) => {
-<<<<<<< HEAD
-=======
     if(showstatus){
 	$('#knobbg').css('backgroundColor', '#ff8'); // ノブを動かしてるとき
 	$('#mouseupdown').text("Mouse DOWN");
     }
->>>>>>> a4c24414b40711acdb43d330830b4e2e22cb180c
+
     clicked = true;
     mousedownx = mouseposx(event);
     mousedowny = mouseposy(event);
@@ -248,13 +234,10 @@ mousemove = (event) => {
 }
 
 mouseup = (event) => {
-<<<<<<< HEAD
-=======
     if(showstatus){
 	$('#knobbg').css('backgroundColor', '#fff');
 	$('#mouseupdown').text("Mouse UP");
     }
->>>>>>> a4c24414b40711acdb43d330830b4e2e22cb180c
     hour = newhour;
     min = newmin;
     sec = newsec;
@@ -272,13 +255,8 @@ $(function(){
     
     $(document).on('mousedown', mousedown);
     $(document).on('touchstart', mousedown);
-<<<<<<< HEAD
 
-    display(hour,min,sec);
-=======
-    
     display(hour,min,sec);
 
     $('body').on('click', dummyEventHandler);
->>>>>>> a4c24414b40711acdb43d330830b4e2e22cb180c
 });

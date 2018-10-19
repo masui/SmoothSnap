@@ -1,19 +1,41 @@
-hour = 12
+hour = 0
 min = 0
 sec = 0
-newhour = 12
+newhour = 0
 newmin = 0
 newsec = 0
+clicked = false
+bgclicked = false
+playing = false
+
+video = $('#video').get(0)
+# video.play()
+video.currentTime = 0
+
+getPlayTime = () ->
+  if ! clicked && playing
+    t = Math.floor(video.currentTime)
+    hour = newhour = Math.floor(t / 60)
+    min = newmin = t % 60
+    sec = newsec = 0
+    showtime hour, min, sec
+    settable(newhour,newmin,newsec)
+
+setInterval getPlayTime, 1000
   
 dummyEventHandler = (event) ->
 
 settime = (hour,min,sec) ->
+  t = hour * 60 + min + sec / 60.0
+  t = 1440 if t >= 1440
+  video.currentTime = t
+  showtime hour,min,sec
+
+showtime = (hour,min,sec) ->
   $('#hour').text hour
   $('#min').text ('0'+min).slice(-2)
   $('#sec').text ('0'+sec).slice(-2)
 
-  # $('#video')[0].currentTime = min * 1.0 + sec / 60.0
-  
   totalsec = ((hour * 60 + min) * 60) + sec
   x = totalsec / 4 / 80
   $('#knob').css 'left', x + 13
@@ -26,8 +48,6 @@ mousedownx = 0
 mousedowny = 0
 mousex = 0
 mousey = 0
-clicked = false
-bgclicked = false
 timetable = []
 
 getMouseX = (e) -> e.pageX
@@ -103,7 +123,7 @@ settable = (hour,min,sec) ->
     timetable[--ind] = [h, m, s]
     timetable[--ind] = [h, m, s]
     break if h == 0
-    brea if ind < -200
+    brea if ind < -1000
 
   h = hour
   m = min
@@ -194,7 +214,7 @@ settable = (hour,min,sec) ->
     timetable[++ind] = [h, m, s]
     break if h == 24 && m == 0 && s == 0
     break if h == 23 && m == 59 && s == 59 
-    brea if ind > 200
+    break if ind > 1000
 
 mousedownbg = (event) ->
   bgclicked = true
@@ -203,7 +223,7 @@ mousedownbg = (event) ->
   $('body').css 'cursor','url("hideCursor.png"), pointer'
 
   mousedownx = getMouseX(event)
-  mousedowny = getMouseX(event)
+  mousedowny = getMouseY(event)
   mousex = mousedownx
   mousey = mousedowny
 
@@ -268,11 +288,11 @@ mousedownknob = (event) ->
 
 mousemove = (event) ->
   event.preventDefault()
-  mousedownx = getMouseX(event)
-  mousedowny = getMouseY(event)
+  mousex = getMouseX(event)
+  mousey = getMouseY(event)
 
   if clicked
-    ind = mousedownx - mousex
+    ind = mousex - mousedownx
     if ind != 0
       t = ((hour * 60 + min) * 60) + sec
       t += ind * 320
@@ -300,20 +320,20 @@ mousemove = (event) ->
       $('#knob').css 'top', 24
       $('#knob').attr 'src', 'memori.png'
       $('#lr').css 'visibility', 'visible'
-      $('#lr').css 'top', 30
-      $('#lr').css 'left', mousedownx - 10
+      $('#lr').css 'top', mousey - mousedowny + 30
+      $('#lr').css 'left', mousex - 10
 
-      ind = mousedownx - mousex
+      ind = mousex - mousedownx
       if timetable[ind]
         settime(timetable[ind][0],timetable[ind][1],timetable[ind][2])
         [newhour, newmin, newsec] = timetable[ind]
 
-  $('#lr').css 'top', 30
-  $('#lr').css 'left', mousedownx - 10
 
-  false
+  $('#lr').css 'top', mousey - mousedowny + 30
+  $('#lr').css 'left', mousex - 10
 
 mouseup = (event) ->
+  false
   $('body').css 'cursor','' # カーソル復活
   $('#slider').css 'cursor','' # カーソル復活
   min = newmin
@@ -328,9 +348,18 @@ mouseup = (event) ->
   false
 
 $ ->
-  settime 12, 0, 0
+  settime 0, 0, 0
   $('body').on 'click', dummyEventHandler
   $('#knob').on 'mousedown', mousedownknob
   $('#knobbg').on 'mousedown', mousedownbg
   $(document).on 'mousemove', mousemove
   $(document).on 'mouseup', mouseup
+  $('#slider').on 'mousedown', (event) ->
+    event.preventDefault()
+    mousedownbg(event)
+  $('#stop').on 'mousedown', () ->
+    playing = false
+    video.pause()
+  $('#play').on 'mousedown', () ->
+    playing = true
+    video.play()

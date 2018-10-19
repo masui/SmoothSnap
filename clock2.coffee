@@ -282,5 +282,8 @@ $ ->
   $('body').on 'click', dummyEventHandler
   $('#knob').on 'mousedown', mousedown
   $('#knobbg').on 'mousedown', mousedownbg
+  $('#slider').on 'mousedown', (event) ->
+    event.preventDefault()
+    mousedownbg(event)
   $(document).on 'mousemove', mousemove
   $(document).on 'mouseup', mouseup

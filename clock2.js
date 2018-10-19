@@ -403,6 +403,10 @@
     $('body').on('click', dummyEventHandler);
     $('#knob').on('mousedown', mousedown);
     $('#knobbg').on('mousedown', mousedownbg);
+    $('#slider').on('mousedown', function(event) {
+      event.preventDefault();
+      return mousedownbg(event);
+    });
     $(document).on('mousemove', mousemove);
     return $(document).on('mouseup', mouseup);
   });
