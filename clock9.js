@@ -491,10 +491,14 @@
     });
     $('#stop').on('mousedown', function() {
       playing = false;
+      $('#stop').css('visibility', 'hidden');
+      $('#play').css('visibility', 'visible');
       return video.pause();
     });
     return $('#play').on('mousedown', function() {
       playing = true;
+      $('#stop').css('visibility', 'visible');
+      $('#play').css('visibility', 'hidden');
       return video.play();
     });
   });

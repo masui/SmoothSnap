@@ -359,7 +359,11 @@ $ ->
     mousedownbg(event)
   $('#stop').on 'mousedown', () ->
     playing = false
+    $('#stop').css 'visibility', 'hidden'
+    $('#play').css 'visibility', 'visible'
     video.pause()
   $('#play').on 'mousedown', () ->
     playing = true
+    $('#stop').css 'visibility', 'visible'
+    $('#play').css 'visibility', 'hidden'
     video.play()

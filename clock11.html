@@ -1,0 +1,50 @@
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width user-scalable=no">
+    <!-- meta name="viewport" content="width=480, user-scalable=no, maximum-scale=0.6667″ /-->
+    <title>Snapping Slider</title>
+    <style type="text/css">
+      <!--
+	  h1 {
+	  }
+	  div {
+	  font-family: "Lucida Grande", "Lucida", "Lucida Sans", "Tahoma", Verdana, Arial, sans-serif;
+	  /* font-family: "sans-serif" */
+	  }
+	  body {
+	  background-color:#eee;
+	  }
+	-->
+    </style>
+  </head>
+  <body>
+    
+    <h1>SmoothSnapで時刻設定 (Version 11)</h1>
+
+    <video id="video" src="http://pitecan.com/tmp/ITWhiteBox2011.mp4" width=500 style="left:20;"></video>
+    <p>
+
+    <div id="slider" style="position:relative;left:40;height:60;width:350;">
+      <img src="kbg3.png" style="position:absolute;top:-5;left:-21;width:313;height:50;">
+      <img id="tab" src="kknob3.png" style="position:absolute;width:60;height:50;">
+      <div id="time" style="position:absolute;top:0;left:100;height:0;font-size:12;color:#fff;cursor:default;">
+	<span id="hour">12</span>:<span id="min">00</span>:<span id="sec">00</span>
+      </div>
+      <img id="play" src="play.png" style="position:absolute;height:40;width:40;top:0;left:300;" />
+      <img id="stop" src="stop.png" style="position:absolute;height:40;width:40;top:00;left:300;visibility:hidden;" />
+    </div>
+
+    <blockquote>
+      <li>計算尺風
+      <li>スナッピングのみ
+    </blockquote>
+
+    
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/2.0.0/jquery.min.js"></script>
+    <script type="text/javascript" src="clock11.js"></script>
+    
+  </body>
+</html>
+
+
