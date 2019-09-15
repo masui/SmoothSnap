@@ -56,11 +56,11 @@ display = (h,m,s) => {
 }
 
 mouseposx = (e) => {
-  return e.pageX ? e.pageX : event.touches[0].pageX;
+  return Math.floor(e.pageX ? e.pageX : e.originalEvent.changedTouches[0].pageX);
 }
 
 mouseposy = (e) => {
-  return e.pageY ? e.pageY : event.touches[0].pageY;
+  return Math.floor(e.pageY ? e.pageY : e.originalEvent.changedTouches[0].pageY);
 }
 
 var mousedownx = 0;
@@ -214,7 +214,9 @@ settable = (hour,min,sec) => {
 }
 
 mousedown = (event) => {
+    event.preventDefault();
     clicked = true;
+
     mousedownx = mouseposx(event);
     mousedowny = mouseposy(event);
     mousex = mousedownx;
@@ -244,6 +246,7 @@ mousemove = (event) => {
 }
 
 mouseup = (event) => {
+    event.preventDefault();
     hour = newhour;
     min = newmin;
     sec = newsec;
@@ -253,14 +256,14 @@ mouseup = (event) => {
 }
 
 $(function(){
-    $(document).on('mousemove', mousemove);
-    $(document).on('touchmove', mousemove);
+    $('body').on('mousemove', mousemove);
+    $('body').on('touchmove', mousemove);
 
-    $(document).on('mouseup', mouseup);
-    $(document).on('touchend', mouseup);
+    $('body').on('mouseup', mouseup);
+    $('body').on('touchend', mouseup);
     
-    $(document).on('mousedown', mousedown);
-    $(document).on('touchstart', mousedown);
+    $('body').on('mousedown', mousedown);
+    $('body').on('touchstart', mousedown);
 
     $('#stop').on('mousedown', () => {
 	playing = false;
