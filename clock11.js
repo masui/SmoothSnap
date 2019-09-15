@@ -33,6 +33,7 @@ showtime = (h,m,s) => {
     $('#min').text(('0'+m).slice(-2)); // 0詰め
     $('#sec').text(('0'+s).slice(-2));
     $('#time').css('left',pos(h,m,s)-25);
+    $('#tab').css('left',pos(h,m,s)-30);
 }
 
 display = (h,m,s) => {
